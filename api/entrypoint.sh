@@ -10,13 +10,12 @@ echo "✅ Database is ready"
 echo "📦 Running prisma generate..."
 npx prisma generate
 
-if [ "$NODE_ENV" = "production" ]; then
-  echo "🚀 Running prisma migrate deploy..."
-  npx prisma migrate deploy
-else
-  echo "🔧 Running prisma db push..."
-  npx prisma db push --skip-generate
-fi
+echo "🔧 Running prisma migrate deploy..."
+npx prisma migrate deploy
 
 echo "🚀 Starting server..."
-exec npm run dev
+if [ "$NODE_ENV" = "production" ]; then
+  exec npm run start
+else
+  exec npm run dev
+fi
