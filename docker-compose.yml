@@ -1,0 +1,65 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: novacaisse
+      POSTGRES_PASSWORD: novacaisse
+      POSTGRES_DB: novacaisse
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U novacaisse"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.dev
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./api/src:/app/src
+      - ./api/prisma:/app/prisma
+    environment:
+      DATABASE_URL: postgresql://novacaisse:novacaisse@db:5432/novacaisse
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-secret-change-in-prod
+      CORS_ORIGIN: http://localhost:3000
+      NODE_ENV: development
+      PORT: "4000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./web/src:/app/src
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NODE_ENV: development
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
