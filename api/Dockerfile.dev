@@ -2,17 +2,18 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-# Install dependencies for argon2 native build
-RUN apk add --no-cache python3 make g++
+# Install dependencies for argon2 native build + openssl for Prisma
+RUN apk add --no-cache python3 make g++ openssl
 
 COPY package.json package-lock.json* ./
 RUN npm install
 
 COPY prisma ./prisma/
-RUN npx prisma generate
+COPY entrypoint.sh ./
+RUN chmod +x entrypoint.sh
 
 COPY . .
 
 EXPOSE 4000
 
-CMD ["npm", "run", "dev"]
+ENTRYPOINT ["./entrypoint.sh"]
