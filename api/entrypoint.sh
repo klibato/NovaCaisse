@@ -7,16 +7,16 @@ until echo "SELECT 1" | npx prisma db execute --stdin > /dev/null 2>&1; do
 done
 echo "✅ Database is ready"
 
+echo "📦 Running prisma generate..."
+npx prisma generate
+
 if [ "$NODE_ENV" = "production" ]; then
   echo "🚀 Running prisma migrate deploy..."
   npx prisma migrate deploy
 else
-  echo "🔧 Running prisma migrate dev..."
-  npx prisma migrate dev --name auto
+  echo "🔧 Running prisma db push..."
+  npx prisma db push --skip-generate
 fi
-
-echo "📦 Running prisma generate..."
-npx prisma generate
 
 echo "🚀 Starting server..."
 exec npm run dev
