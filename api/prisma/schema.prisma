@@ -12,7 +12,7 @@ datasource db {
 model Tenant {
   id               String   @id @default(cuid())
   name             String // "Kebab du Coin"
-  siret            String
+  siret            String   @unique
   address          String
   vatNumber        String?
   phone            String?
