@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Multi-tenant ───
+
+model Tenant {
+  id               String   @id @default(cuid())
+  name             String // "Kebab du Coin"
+  siret            String   @unique
+  address          String
+  vatNumber        String?
+  phone            String?
+  email            String
+  logoUrl          String?
+  subscriptionPlan String   @default("starter")
+  tenantSecret     String // clé HMAC pour signatures ISCA
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  users      User[]
+  categories Category[]
+  products   Product[]
+  menus      Menu[]
+  tickets    Ticket[]
+  closures   Closure[]
+  archives   Archive[]
+  auditLogs  AuditLog[]
+}
+
+// ─── Auth & RBAC ───
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  name         String
+  email        String?
+  passwordHash String?
+  pinCode      String // PIN 4-6 chiffres (hashé Argon2)
+  role         Role     @default(CASHIER)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  @@unique([tenantId, pinCode])
+}
+
+enum Role {
+  OWNER
+  MANAGER
+  CASHIER
+}
+
+// ─── Catalogue ───
+
+model Category {
+  id       String  @id @default(cuid())
+  tenantId String
+  tenant   Tenant  @relation(fields: [tenantId], references: [id])
+  name     String
+  color    String  @default("#3498db")
+  position Int     @default(0)
+  active   Boolean @default(true)
+
+  products Product[]
+  menus    Menu[]
+}
+
+model Product {
+  id              String    @id @default(cuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id])
+  name            String
+  priceHt         Int // centimes (850 = 8.50€)
+  vatRateOnsite   Decimal   @default(10.0) // TVA sur place
+  vatRateTakeaway Decimal   @default(5.5) // TVA à emporter
+  categoryId      String?
+  category        Category? @relation(fields: [categoryId], references: [id])
+  imageUrl        String?
+  supplements     Json? // [{name, priceHt, maxQty}]
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  menuItems MenuItem[]
+}
+
+model Menu {
+  id              String    @id @default(cuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id])
+  name            String
+  priceHt         Int // prix menu en centimes
+  vatRateOnsite   Decimal   @default(10.0)
+  vatRateTakeaway Decimal   @default(5.5)
+  categoryId      String?
+  category        Category? @relation(fields: [categoryId], references: [id])
+  imageUrl        String?
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  items MenuItem[]
+}
+
+model MenuItem {
+  id          String  @id @default(cuid())
+  menuId      String
+  menu        Menu    @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  isChoice    Boolean @default(false)
+  choiceGroup String? // "boisson", "accompagnement"
+  position    Int     @default(0)
+}
+
+// ─── Ventes (ISCA) ───
+
+model Ticket {
+  id             String      @id @default(cuid())
+  tenantId       String
+  tenant         Tenant      @relation(fields: [tenantId], references: [id])
+  sequenceNumber Int // compteur monotonique par tenant
+  serviceMode    ServiceMode
+  items          Json // [{name, qty, priceHt, vatRate, supplements}]
+  totalHt        Int // centimes
+  totalTtc       Int // centimes
+  vatDetails     Json // [{rate, baseHt, amount}]
+  payments       Json // [{method, amount}]
+  isExpenseNote  Boolean     @default(false)
+  isCancellation Boolean     @default(false) // ticket d'annulation
+  cancelledRef   String? // id du ticket annulé si applicable
+  hash           String // SHA-256
+  prevHash       String // hash du ticket précédent
+  signature      String // HMAC-SHA256
+  userId         String?
+  createdAt      DateTime    @default(now())
+
+  @@unique([tenantId, sequenceNumber])
+  @@index([tenantId, createdAt])
+}
+
+enum ServiceMode {
+  ONSITE
+  TAKEAWAY
+}
+
+model Closure {
+  id        String      @id @default(cuid())
+  tenantId  String
+  tenant    Tenant      @relation(fields: [tenantId], references: [id])
+  type      ClosureType
+  date      DateTime
+  totals    Json // {totalHt, totalTtc, vatDetails, ticketCount, paymentBreakdown}
+  hash      String
+  createdAt DateTime    @default(now())
+
+  @@unique([tenantId, type, date])
+}
+
+enum ClosureType {
+  DAILY
+  MONTHLY
+  YEARLY
+}
+
+model Archive {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  period      String // "2026-03", "2026"
+  filePath    String
+  fileHash    String
+  generatedAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  userId    String?
+  action    String // "ticket.create", "product.update"
+  details   Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+}
