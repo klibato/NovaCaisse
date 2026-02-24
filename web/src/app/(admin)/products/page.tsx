@@ -28,16 +28,14 @@ interface ProductForm {
   name: string;
   priceHt: string;
   categoryId: string;
-  vatRateOnsite: string;
-  vatRateTakeaway: string;
+  vatRate: string;
 }
 
 const EMPTY_FORM: ProductForm = {
   name: '',
   priceHt: '',
   categoryId: '',
-  vatRateOnsite: '10',
-  vatRateTakeaway: '5.5',
+  vatRate: '10',
 };
 
 export default function ProductsPage() {
@@ -79,8 +77,7 @@ export default function ProductsPage() {
       name: product.name,
       priceHt: centsToEuros(product.priceHt),
       categoryId: product.categoryId || '',
-      vatRateOnsite: String(product.vatRateOnsite),
-      vatRateTakeaway: String(product.vatRateTakeaway),
+      vatRate: String(product.vatRate),
     });
     setEditingId(product.id);
     setShowForm(true);
@@ -93,8 +90,7 @@ export default function ProductsPage() {
         name: form.name,
         priceHt: eurosToCents(parseFloat(form.priceHt)),
         categoryId: form.categoryId || null,
-        vatRateOnsite: parseFloat(form.vatRateOnsite),
-        vatRateTakeaway: parseFloat(form.vatRateTakeaway),
+        vatRate: parseFloat(form.vatRate),
       };
 
       if (editingId) {
@@ -180,7 +176,7 @@ export default function ProductsPage() {
                   {formatPrice(product.priceHt)}
                 </td>
                 <td className="px-4 py-3 text-center text-sm text-muted-foreground">
-                  {Number(product.vatRateOnsite)}% / {Number(product.vatRateTakeaway)}%
+                  {Number(product.vatRate)}%
                 </td>
                 <td className="px-4 py-3 text-center">
                   <Badge variant={product.active ? 'default' : 'secondary'}>
@@ -274,31 +270,21 @@ export default function ProductsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="vatOnsite">TVA sur place (%)</Label>
-                <Input
-                  id="vatOnsite"
-                  type="number"
-                  step="0.1"
-                  value={form.vatRateOnsite}
-                  onChange={(e) =>
-                    setForm({ ...form, vatRateOnsite: e.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <Label htmlFor="vatTakeaway">TVA emporter (%)</Label>
-                <Input
-                  id="vatTakeaway"
-                  type="number"
-                  step="0.1"
-                  value={form.vatRateTakeaway}
-                  onChange={(e) =>
-                    setForm({ ...form, vatRateTakeaway: e.target.value })
-                  }
-                />
-              </div>
+            <div>
+              <Label>Taux TVA</Label>
+              <Select
+                value={form.vatRate}
+                onValueChange={(val) => setForm({ ...form, vatRate: val })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Taux TVA" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5.5">5,5% — Produits conservables (canettes, bouteilles scellées)</SelectItem>
+                  <SelectItem value="10">10% — Consommation immédiate (plats, boissons servies)</SelectItem>
+                  <SelectItem value="20">20% — Boissons alcoolisées</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setShowForm(false)}>

@@ -3,15 +3,14 @@
 import { useState } from 'react';
 import { useCartStore } from '@/stores/cart.store';
 import { computeTtc, formatPrice } from '@/lib/utils';
-import type { Product, Category, ServiceMode } from '@/types';
+import type { Product, Category } from '@/types';
 
 interface ProductGridProps {
   products: Product[];
   categories: Category[];
-  serviceMode: ServiceMode;
 }
 
-export function ProductGrid({ products, categories, serviceMode }: ProductGridProps) {
+export function ProductGrid({ products, categories }: ProductGridProps) {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const { addItem } = useCartStore();
 
@@ -22,11 +21,7 @@ export function ProductGrid({ products, categories, serviceMode }: ProductGridPr
     : products;
 
   const getDisplayPrice = (product: Product): number => {
-    const vatRate =
-      serviceMode === 'ONSITE'
-        ? Number(product.vatRateOnsite)
-        : Number(product.vatRateTakeaway);
-    return computeTtc(product.priceHt, vatRate);
+    return computeTtc(product.priceHt, Number(product.vatRate));
   };
 
   return (
