@@ -24,10 +24,7 @@ export const useCartStore = create<CartState>()((set, get) => ({
 
   addItem: (product: Product) => {
     set((state) => {
-      const vatRate =
-        state.serviceMode === 'ONSITE'
-          ? Number(product.vatRateOnsite)
-          : Number(product.vatRateTakeaway);
+      const vatRate = Number(product.vatRate);
 
       const existing = state.items.find(
         (item) =>
@@ -49,8 +46,6 @@ export const useCartStore = create<CartState>()((set, get) => ({
         qty: 1,
         priceHt: product.priceHt,
         vatRate,
-        vatRateOnsite: Number(product.vatRateOnsite),
-        vatRateTakeaway: Number(product.vatRateTakeaway),
         supplements: [],
       };
 
@@ -87,13 +82,7 @@ export const useCartStore = create<CartState>()((set, get) => ({
   },
 
   setServiceMode: (mode: ServiceMode) => {
-    set((state) => ({
-      serviceMode: mode,
-      items: state.items.map((item) => ({
-        ...item,
-        vatRate: mode === 'ONSITE' ? item.vatRateOnsite : item.vatRateTakeaway,
-      })),
-    }));
+    set({ serviceMode: mode });
   },
 
   clearCart: () => {

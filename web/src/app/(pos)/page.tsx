@@ -10,12 +10,15 @@ import { PaymentModal } from '@/components/pos/PaymentModal';
 import { TicketConfirmation } from '@/components/pos/TicketConfirmation';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { LogOut, UtensilsCrossed, ShoppingBag } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { LogOut, UtensilsCrossed, ShoppingBag, Settings } from 'lucide-react';
 import type { Product, Category, TicketResponse } from '@/types';
 
 export default function PosPage() {
   const { user, logout } = useAuthStore();
   const { serviceMode, setServiceMode } = useCartStore();
+  const router = useRouter();
+  const isAdmin = user?.role === 'OWNER' || user?.role === 'MANAGER';
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,6 +91,12 @@ export default function PosPage() {
           <span className="text-sm text-muted-foreground">
             {user?.name}
           </span>
+          {isAdmin && (
+            <Button variant="outline" size="sm" onClick={() => router.push('/dashboard')}>
+              <Settings className="mr-1 h-4 w-4" />
+              Back-office
+            </Button>
+          )}
           <Button variant="ghost" size="sm" onClick={logout}>
             <LogOut className="mr-1 h-4 w-4" />
             Déconnexion
@@ -102,7 +111,6 @@ export default function PosPage() {
           <ProductGrid
             products={products}
             categories={categories}
-            serviceMode={serviceMode}
           />
         </div>
 

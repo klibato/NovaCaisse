@@ -28,8 +28,7 @@ export interface Product {
   tenantId: string;
   name: string;
   priceHt: number;
-  vatRateOnsite: number;
-  vatRateTakeaway: number;
+  vatRate: number;
   categoryId: string | null;
   imageUrl: string | null;
   supplements: Supplement[] | null;
@@ -61,8 +60,7 @@ export interface Menu {
   tenantId: string;
   name: string;
   priceHt: number;
-  vatRateOnsite: number;
-  vatRateTakeaway: number;
+  vatRate: number;
   categoryId: string | null;
   imageUrl: string | null;
   active: boolean;
@@ -91,8 +89,6 @@ export interface CartItem {
   qty: number;
   priceHt: number;
   vatRate: number;
-  vatRateOnsite: number;
-  vatRateTakeaway: number;
   supplements: CartItemSupplement[];
 }
 

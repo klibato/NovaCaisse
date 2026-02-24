@@ -78,8 +78,7 @@ model Product {
   tenant          Tenant    @relation(fields: [tenantId], references: [id])
   name            String
   priceHt         Int // centimes (850 = 8.50€)
-  vatRateOnsite   Decimal   @default(10.0) // TVA sur place
-  vatRateTakeaway Decimal   @default(5.5) // TVA à emporter
+  vatRate         Decimal   @default(10.0) // TVA unique selon conditionnement (5.5%, 10%, 20%)
   categoryId      String?
   category        Category? @relation(fields: [categoryId], references: [id])
   imageUrl        String?
@@ -96,8 +95,7 @@ model Menu {
   tenant          Tenant    @relation(fields: [tenantId], references: [id])
   name            String
   priceHt         Int // prix menu en centimes
-  vatRateOnsite   Decimal   @default(10.0)
-  vatRateTakeaway Decimal   @default(5.5)
+  vatRate         Decimal   @default(10.0) // TVA par défaut du menu
   categoryId      String?
   category        Category? @relation(fields: [categoryId], references: [id])
   imageUrl        String?
