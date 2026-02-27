@@ -386,7 +386,7 @@ export default function MenusPage() {
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={submitting || !form.name || !form.priceHt || form.items.length === 0}
+                disabled={submitting || !form.name || !form.priceHt || (!editingId && form.items.length === 0)}
               >
                 {submitting ? 'Enregistrement...' : editingId ? 'Modifier' : 'Créer'}
               </Button>
