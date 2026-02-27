@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { LogOut, UtensilsCrossed, ShoppingBag, Settings } from 'lucide-react';
-import type { Product, Category, TicketResponse } from '@/types';
+import type { Product, Category, Menu, TicketResponse } from '@/types';
 
 export default function PosPage() {
   const { user, logout } = useAuthStore();
@@ -21,6 +21,7 @@ export default function PosPage() {
   const isAdmin = user?.role === 'OWNER' || user?.role === 'MANAGER';
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [menus, setMenus] = useState<Menu[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPayment, setShowPayment] = useState(false);
   const [confirmedTicket, setConfirmedTicket] = useState<TicketResponse | null>(null);
@@ -28,12 +29,14 @@ export default function PosPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [prods, cats] = await Promise.all([
+        const [prods, cats, mns] = await Promise.all([
           api.get<Product[]>('/products'),
           api.get<Category[]>('/categories'),
+          api.get<Menu[]>('/menus'),
         ]);
         setProducts(prods);
         setCategories(cats);
+        setMenus(mns);
       } catch (err) {
         console.error('Erreur chargement données:', err);
       } finally {
@@ -111,6 +114,7 @@ export default function PosPage() {
           <ProductGrid
             products={products}
             categories={categories}
+            menus={menus}
           />
         </div>
 

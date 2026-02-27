@@ -49,6 +49,7 @@ export interface MenuItem {
     id: string;
     name: string;
     priceHt: number;
+    vatRate: number;
   };
   isChoice: boolean;
   choiceGroup: string | null;
@@ -82,6 +83,12 @@ export interface CartItemSupplement {
   qty: number;
 }
 
+export interface MenuCartDetail {
+  name: string;
+  priceHt: number;
+  vatRate: number;
+}
+
 export interface CartItem {
   id: string;
   productId: string;
@@ -90,6 +97,9 @@ export interface CartItem {
   priceHt: number;
   vatRate: number;
   supplements: CartItemSupplement[];
+  isMenu?: boolean;
+  menuId?: string;
+  menuItems?: MenuCartDetail[];
 }
 
 export interface Payment {

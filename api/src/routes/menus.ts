@@ -45,7 +45,7 @@ export default async function menuRoutes(fastify: FastifyInstance) {
       where: whereClause,
       include: {
         items: {
-          include: { product: { select: { id: true, name: true, priceHt: true } } },
+          include: { product: { select: { id: true, name: true, priceHt: true, vatRate: true } } },
           orderBy: { position: 'asc' },
         },
         category: { select: { id: true, name: true, color: true } },
@@ -118,7 +118,7 @@ export default async function menuRoutes(fastify: FastifyInstance) {
         },
         include: {
           items: {
-            include: { product: { select: { id: true, name: true, priceHt: true } } },
+            include: { product: { select: { id: true, name: true, priceHt: true, vatRate: true } } },
             orderBy: { position: 'asc' },
           },
           category: { select: { id: true, name: true, color: true } },
@@ -179,7 +179,7 @@ export default async function menuRoutes(fastify: FastifyInstance) {
           data: menuData,
           include: {
             items: {
-              include: { product: { select: { id: true, name: true, priceHt: true } } },
+              include: { product: { select: { id: true, name: true, priceHt: true, vatRate: true } } },
               orderBy: { position: 'asc' },
             },
             category: { select: { id: true, name: true, color: true } },
