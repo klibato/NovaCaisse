@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth.store';
 import { Button } from '@/components/ui/button';
@@ -24,17 +24,22 @@ const NAV_ITEMS = [
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, _hasHydrated, user, logout } = useAuthStore();
+  const [mounted, setMounted] = useState(false);
+  const { isAuthenticated, user, logout } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (_hasHydrated && !isAuthenticated) {
-      router.push('/login');
-    }
-  }, [_hasHydrated, isAuthenticated, router]);
+    setMounted(true);
+  }, []);
 
-  if (!_hasHydrated || !isAuthenticated) return null;
+  useEffect(() => {
+    if (mounted && !isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [mounted, isAuthenticated, router]);
+
+  if (!mounted || !isAuthenticated) return null;
 
   return (
     <div className="flex h-screen">
