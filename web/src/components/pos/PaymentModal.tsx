@@ -107,13 +107,49 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
     setError('');
 
     try {
-      const ticketItems = items.map((item) => ({
-        name: item.name,
-        qty: item.qty,
-        priceHt: item.priceHt,
-        vatRate: item.vatRate,
-        supplements: item.supplements.length > 0 ? item.supplements : undefined,
-      }));
+      const ticketItems: { name: string; qty: number; priceHt: number; vatRate: number; supplements?: typeof items[0]['supplements'] }[] = [];
+
+      for (const item of items) {
+        if (item.isMenu && item.menuItems && item.menuItems.length > 0) {
+          // Expand menu into prorated items for TVA ventilation
+          const totalComponentHt = item.menuItems.reduce((s, mi) => s + mi.priceHt, 0);
+
+          if (totalComponentHt > 0) {
+            let allocated = 0;
+            for (let i = 0; i < item.menuItems.length; i++) {
+              const mi = item.menuItems[i];
+              let proratedHt: number;
+              if (i === item.menuItems.length - 1) {
+                proratedHt = item.priceHt - allocated;
+              } else {
+                proratedHt = Math.round((mi.priceHt / totalComponentHt) * item.priceHt);
+                allocated += proratedHt;
+              }
+              ticketItems.push({
+                name: `${item.name} — ${mi.name}`,
+                qty: item.qty,
+                priceHt: proratedHt,
+                vatRate: mi.vatRate,
+              });
+            }
+          } else {
+            ticketItems.push({
+              name: item.name,
+              qty: item.qty,
+              priceHt: item.priceHt,
+              vatRate: item.vatRate,
+            });
+          }
+        } else {
+          ticketItems.push({
+            name: item.name,
+            qty: item.qty,
+            priceHt: item.priceHt,
+            vatRate: item.vatRate,
+            supplements: item.supplements.length > 0 ? item.supplements : undefined,
+          });
+        }
+      }
 
       const ticket = await api.post<TicketResponse>('/tickets', {
         serviceMode,

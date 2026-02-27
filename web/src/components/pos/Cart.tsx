@@ -4,6 +4,7 @@ import { useCartStore } from '@/stores/cart.store';
 import { computeTtc, formatPrice } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import { Minus, Plus, Trash2, ShoppingCart } from 'lucide-react';
 
 interface CartProps {
@@ -61,7 +62,25 @@ export function Cart({ onEncaisser }: CartProps) {
             <div key={item.id} className="border-b px-4 py-3">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <p className="font-medium text-foreground">{item.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-foreground">{item.name}</p>
+                    {item.isMenu && (
+                      <Badge className="bg-primary text-[10px] px-1.5 py-0">
+                        Menu
+                      </Badge>
+                    )}
+                  </div>
+                  {/* Menu sub-items */}
+                  {item.isMenu && item.menuItems && item.menuItems.length > 0 && (
+                    <div className="mt-1 ml-2 border-l-2 border-primary/20 pl-2">
+                      {item.menuItems.map((mi, i) => (
+                        <p key={i} className="text-xs text-muted-foreground">
+                          {mi.name}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  {/* Supplements */}
                   {item.supplements.length > 0 && (
                     <div className="mt-0.5">
                       {item.supplements.map((sup, i) => (
