@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { createTicket } from '../services/ticket.service.js';
+import { generateClientPdf, generateKitchenPdf } from '../services/print.service.js';
 
 const createTicketSchema = {
   body: {
@@ -124,5 +125,50 @@ export default async function ticketRoutes(fastify: FastifyInstance) {
     }
 
     return reply.send(ticket);
+  });
+
+  // POST /tickets/:id/print — Génère un PDF ticket client
+  fastify.post('/tickets/:id/print', async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    const ticket = await fastify.prisma.ticket.findFirst({
+      where: { id, tenantId: request.user.tenantId },
+    });
+
+    if (!ticket) {
+      return reply.status(404).send({ error: 'Ticket non trouvé', code: 'NOT_FOUND' });
+    }
+
+    const tenant = await fastify.prisma.tenant.findUniqueOrThrow({
+      where: { id: request.user.tenantId },
+      select: { name: true, address: true, siret: true, vatNumber: true, phone: true },
+    });
+
+    const pdfBuffer = await generateClientPdf(ticket, tenant);
+
+    return reply
+      .header('Content-Type', 'application/pdf')
+      .header('Content-Disposition', `inline; filename="ticket-${ticket.sequenceNumber}.pdf"`)
+      .send(pdfBuffer);
+  });
+
+  // POST /tickets/:id/print-kitchen — Génère un PDF ticket cuisine
+  fastify.post('/tickets/:id/print-kitchen', async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    const ticket = await fastify.prisma.ticket.findFirst({
+      where: { id, tenantId: request.user.tenantId },
+    });
+
+    if (!ticket) {
+      return reply.status(404).send({ error: 'Ticket non trouvé', code: 'NOT_FOUND' });
+    }
+
+    const pdfBuffer = await generateKitchenPdf(ticket);
+
+    return reply
+      .header('Content-Type', 'application/pdf')
+      .header('Content-Disposition', `inline; filename="cuisine-${ticket.sequenceNumber}.pdf"`)
+      .send(pdfBuffer);
   });
 }
