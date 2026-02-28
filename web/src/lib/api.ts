@@ -1,3 +1,5 @@
+import { useConnectivityStore } from '@/stores/connectivity.store';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 interface ApiError {
@@ -68,10 +70,22 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    let res = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers,
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${API_URL}${path}`, {
+        ...options,
+        headers,
+      });
+    } catch (err) {
+      // Network error (ERR_CONNECTION_REFUSED, DNS failure, etc.)
+      // Use console.warn to avoid noisy ERR_CONNECTION_REFUSED in console
+      console.warn(`[NovaCaisse] Réseau indisponible: ${path}`);
+      useConnectivityStore.getState().setOnline(false);
+      throw err;
+    }
+
+    // API responded — mark as online
+    useConnectivityStore.getState().setOnline(true);
 
     if (res.status === 401 && token) {
       const refreshed = await this.refreshAuth();

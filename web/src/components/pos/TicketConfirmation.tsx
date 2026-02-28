@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Printer, ChefHat } from 'lucide-react';
+import { CheckCircle, Printer, ChefHat, CloudOff } from 'lucide-react';
 import type { TicketResponse } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -31,6 +31,7 @@ interface TicketConfirmationProps {
 }
 
 export function TicketConfirmation({ ticket, onNewTicket }: TicketConfirmationProps) {
+  const isOfflineTicket = ticket.id.startsWith('offline-');
   const cashPayment = ticket.payments.find((p) => p.method === 'cash');
   const totalPaid = ticket.payments.reduce((s, p) => s + p.amount, 0);
   const changeDue = cashPayment && totalPaid > ticket.totalTtc ? totalPaid - ticket.totalTtc : 0;
@@ -79,12 +80,25 @@ export function TicketConfirmation({ ticket, onNewTicket }: TicketConfirmationPr
     <Dialog open onOpenChange={() => onNewTicket()}>
       <DialogContent className="max-w-sm">
         <DialogHeader className="text-center">
-          <div className="mx-auto mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-            <CheckCircle className="h-10 w-10 text-green-600" />
+          <div className={`mx-auto mb-2 flex h-16 w-16 items-center justify-center rounded-full ${isOfflineTicket ? 'bg-orange-100' : 'bg-green-100'}`}>
+            {isOfflineTicket ? (
+              <CloudOff className="h-10 w-10 text-orange-500" />
+            ) : (
+              <CheckCircle className="h-10 w-10 text-green-600" />
+            )}
           </div>
-          <DialogTitle className="text-center text-xl">Ticket validé</DialogTitle>
+          <DialogTitle className="text-center text-xl">
+            {isOfflineTicket ? 'Ticket enregistré' : 'Ticket validé'}
+          </DialogTitle>
           <DialogDescription className="text-center">
-            Ticket #{ticket.sequenceNumber}
+            {isOfflineTicket ? (
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-700 border border-orange-300">
+                <CloudOff className="h-3.5 w-3.5" />
+                En attente de sync
+              </span>
+            ) : (
+              <>Ticket #{ticket.sequenceNumber}</>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -132,7 +146,8 @@ export function TicketConfirmation({ ticket, onNewTicket }: TicketConfirmationPr
             variant="outline"
             className="flex-1"
             onClick={handlePrint}
-            disabled={printing}
+            disabled={printing || isOfflineTicket}
+            title={isOfflineTicket ? 'Disponible après synchronisation' : undefined}
           >
             <Printer className="mr-2 h-4 w-4" />
             {printing ? 'Impression...' : 'Imprimer'}
@@ -141,8 +156,8 @@ export function TicketConfirmation({ ticket, onNewTicket }: TicketConfirmationPr
             variant="outline"
             size="icon"
             onClick={handlePrintKitchen}
-            disabled={printingKitchen}
-            title="Ticket cuisine"
+            disabled={printingKitchen || isOfflineTicket}
+            title={isOfflineTicket ? 'Disponible après synchronisation' : 'Ticket cuisine'}
           >
             <ChefHat className="h-4 w-4" />
           </Button>
