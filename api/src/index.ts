@@ -16,6 +16,7 @@ import productRoutes from './routes/products.js';
 import categoryRoutes from './routes/categories.js';
 import menuRoutes from './routes/menus.js';
 import closureRoutes from './routes/closures.js';
+import dashboardRoutes from './routes/dashboard.js';
 import { setupClosureJobs } from './jobs/closures.job.js';
 
 const envToLogger: Record<string, object | boolean> = {
@@ -86,6 +87,7 @@ export async function buildApp() {
   await app.register(categoryRoutes);
   await app.register(menuRoutes);
   await app.register(closureRoutes);
+  await app.register(dashboardRoutes);
 
   // --- Health Check ---
   app.get('/health', async () => {
