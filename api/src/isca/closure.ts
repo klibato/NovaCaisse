@@ -51,7 +51,7 @@ export async function generateClosure(
     totalTtc += ticket.totalTtc;
 
     // Agréger TVA
-    const vatDetails = ticket.vatDetails as VatDetail[];
+    const vatDetails = ticket.vatDetails as unknown as VatDetail[];
     for (const vat of vatDetails) {
       const existing = vatMap.get(vat.rate) ?? { baseHt: 0, amount: 0 };
       existing.baseHt += vat.baseHt;
@@ -60,7 +60,7 @@ export async function generateClosure(
     }
 
     // Agréger paiements
-    const payments = ticket.payments as PaymentDetail[];
+    const payments = ticket.payments as unknown as PaymentDetail[];
     for (const payment of payments) {
       const existing = paymentMap.get(payment.method) ?? 0;
       paymentMap.set(payment.method, existing + payment.amount);
@@ -91,7 +91,7 @@ export async function generateClosure(
       tenantId,
       type,
       date: startDate,
-      totals: totals as unknown as Record<string, unknown>,
+      totals: JSON.parse(JSON.stringify(totals)),
       hash,
     },
   });

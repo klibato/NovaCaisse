@@ -6,6 +6,7 @@ interface CartState {
   items: CartItem[];
   serviceMode: ServiceMode;
   addItem: (product: Product) => void;
+  addItemWithSupplements: (product: Product, supplements: CartItemSupplement[]) => void;
   addMenu: (menu: Menu, selectedItems: MenuCartDetail[]) => void;
   removeItem: (id: string) => void;
   updateQty: (id: string, qty: number) => void;
@@ -50,6 +51,22 @@ export const useCartStore = create<CartState>()((set, get) => ({
         supplements: [],
       };
 
+      return { items: [...state.items, newItem] };
+    });
+  },
+
+  addItemWithSupplements: (product: Product, supplements: CartItemSupplement[]) => {
+    set((state) => {
+      const vatRate = Number(product.vatRate);
+      const newItem: CartItem = {
+        id: `cart-${nextId++}`,
+        productId: product.id,
+        name: product.name,
+        qty: 1,
+        priceHt: product.priceHt,
+        vatRate,
+        supplements,
+      };
       return { items: [...state.items, newItem] };
     });
   },

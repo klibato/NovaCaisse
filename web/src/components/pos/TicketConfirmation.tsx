@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+import { api } from '@/lib/api';
 import { formatPrice } from '@/lib/utils';
 import {
   Dialog,
@@ -11,8 +13,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Printer } from 'lucide-react';
+import { CheckCircle, Printer, ChefHat } from 'lucide-react';
 import type { TicketResponse } from '@/types';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 const PAYMENT_LABELS: Record<string, string> = {
   cash: 'Espèces',
@@ -30,6 +34,46 @@ export function TicketConfirmation({ ticket, onNewTicket }: TicketConfirmationPr
   const cashPayment = ticket.payments.find((p) => p.method === 'cash');
   const totalPaid = ticket.payments.reduce((s, p) => s + p.amount, 0);
   const changeDue = cashPayment && totalPaid > ticket.totalTtc ? totalPaid - ticket.totalTtc : 0;
+  const [printing, setPrinting] = useState(false);
+  const [printingKitchen, setPrintingKitchen] = useState(false);
+
+  const handlePrint = async () => {
+    setPrinting(true);
+    try {
+      const token = getToken();
+      const res = await fetch(`${API_URL}/tickets/${ticket.id}/print`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('Erreur impression');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch {
+      // silently fail
+    } finally {
+      setPrinting(false);
+    }
+  };
+
+  const handlePrintKitchen = async () => {
+    setPrintingKitchen(true);
+    try {
+      const token = getToken();
+      const res = await fetch(`${API_URL}/tickets/${ticket.id}/print-kitchen`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('Erreur impression');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch {
+      // silently fail
+    } finally {
+      setPrintingKitchen(false);
+    }
+  };
 
   return (
     <Dialog open onOpenChange={() => onNewTicket()}>
@@ -87,10 +131,20 @@ export function TicketConfirmation({ ticket, onNewTicket }: TicketConfirmationPr
           <Button
             variant="outline"
             className="flex-1"
-            disabled
+            onClick={handlePrint}
+            disabled={printing}
           >
             <Printer className="mr-2 h-4 w-4" />
-            Imprimer
+            {printing ? 'Impression...' : 'Imprimer'}
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handlePrintKitchen}
+            disabled={printingKitchen}
+            title="Ticket cuisine"
+          >
+            <ChefHat className="h-4 w-4" />
           </Button>
           <Button
             className="flex-1 bg-primary"
@@ -102,4 +156,16 @@ export function TicketConfirmation({ ticket, onNewTicket }: TicketConfirmationPr
       </DialogContent>
     </Dialog>
   );
+}
+
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  const stored = localStorage.getItem('auth-storage');
+  if (!stored) return null;
+  try {
+    const parsed = JSON.parse(stored);
+    return parsed.state?.token || null;
+  } catch {
+    return null;
+  }
 }
