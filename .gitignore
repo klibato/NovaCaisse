@@ -36,3 +36,6 @@ pgdata/
 
 # Testing
 coverage/
+
+# TypeScript
+*.tsbuildinfo
