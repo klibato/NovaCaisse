@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { useCartStore } from '@/stores/cart.store';
 import { computeTtc, formatPrice } from '@/lib/utils';
 import { MenuSelectionModal } from '@/components/pos/MenuSelectionModal';
+import { SupplementModal } from '@/components/pos/SupplementModal';
 import { Badge } from '@/components/ui/badge';
-import type { Product, Category, Menu } from '@/types';
+import type { Product, Category, Menu, CartItemSupplement } from '@/types';
 
 interface ProductGridProps {
   products: Product[];
@@ -16,7 +17,8 @@ interface ProductGridProps {
 export function ProductGrid({ products, categories, menus }: ProductGridProps) {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [selectedMenu, setSelectedMenu] = useState<Menu | null>(null);
-  const { addItem } = useCartStore();
+  const [supplementProduct, setSupplementProduct] = useState<Product | null>(null);
+  const { addItem, addItemWithSupplements } = useCartStore();
 
   const sortedCategories = [...categories].sort((a, b) => a.position - b.position);
 
@@ -30,6 +32,22 @@ export function ProductGrid({ products, categories, menus }: ProductGridProps) {
 
   const getDisplayPrice = (priceHt: number, vatRate: number): number => {
     return computeTtc(priceHt, Number(vatRate));
+  };
+
+  const handleProductClick = (product: Product) => {
+    if (product.supplements && product.supplements.length > 0) {
+      setSupplementProduct(product);
+    } else {
+      addItem(product);
+    }
+  };
+
+  const handleSupplementConfirm = (product: Product, supplements: CartItemSupplement[]) => {
+    if (supplements.length > 0) {
+      addItemWithSupplements(product, supplements);
+    } else {
+      addItem(product);
+    }
   };
 
   return (
@@ -97,10 +115,15 @@ export function ProductGrid({ products, categories, menus }: ProductGridProps) {
         {filteredProducts.map((product) => (
           <button
             key={product.id}
-            onClick={() => addItem(product)}
-            className="flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-white p-4 shadow-sm transition-all hover:border-primary hover:shadow-md active:scale-95"
+            onClick={() => handleProductClick(product)}
+            className="relative flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-white p-4 shadow-sm transition-all hover:border-primary hover:shadow-md active:scale-95"
             style={{ minHeight: '100px' }}
           >
+            {product.supplements && product.supplements.length > 0 && (
+              <Badge variant="outline" className="absolute right-2 top-2 text-[10px]">
+                Suppl.
+              </Badge>
+            )}
             <span className="text-center text-base font-semibold text-foreground">
               {product.name}
             </span>
@@ -131,6 +154,16 @@ export function ProductGrid({ products, categories, menus }: ProductGridProps) {
           menu={selectedMenu}
           open={!!selectedMenu}
           onClose={() => setSelectedMenu(null)}
+        />
+      )}
+
+      {/* Supplement modal */}
+      {supplementProduct && (
+        <SupplementModal
+          product={supplementProduct}
+          open={!!supplementProduct}
+          onClose={() => setSupplementProduct(null)}
+          onConfirm={handleSupplementConfirm}
         />
       )}
     </div>
