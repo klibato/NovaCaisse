@@ -15,6 +15,9 @@ import ticketRoutes from './routes/tickets.js';
 import productRoutes from './routes/products.js';
 import categoryRoutes from './routes/categories.js';
 import menuRoutes from './routes/menus.js';
+import closureRoutes from './routes/closures.js';
+import dashboardRoutes from './routes/dashboard.js';
+import { setupClosureJobs } from './jobs/closures.job.js';
 
 const envToLogger: Record<string, object | boolean> = {
   development: {
@@ -83,6 +86,8 @@ export async function buildApp() {
   await app.register(productRoutes);
   await app.register(categoryRoutes);
   await app.register(menuRoutes);
+  await app.register(closureRoutes);
+  await app.register(dashboardRoutes);
 
   // --- Health Check ---
   app.get('/health', async () => {
@@ -101,6 +106,19 @@ async function start() {
     await app.listen({ port, host });
     app.log.info(`Server running at http://${host}:${port}`);
     app.log.info(`Swagger docs at http://${host}:${port}/docs`);
+
+    // --- BullMQ: Clôture journalière automatique ---
+    try {
+      const { queue, worker } = await setupClosureJobs(app.redis, app.prisma);
+      app.log.info('BullMQ daily-closure job scheduled');
+
+      app.addHook('onClose', async () => {
+        await worker.close();
+        await queue.close();
+      });
+    } catch (err) {
+      app.log.warn({ err }, 'BullMQ closure jobs setup failed (non-fatal)');
+    }
   } catch (err) {
     app.log.error(err);
     process.exit(1);

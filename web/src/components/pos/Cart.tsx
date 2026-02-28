@@ -82,10 +82,10 @@ export function Cart({ onEncaisser }: CartProps) {
                   )}
                   {/* Supplements */}
                   {item.supplements.length > 0 && (
-                    <div className="mt-0.5">
+                    <div className="mt-0.5 ml-2">
                       {item.supplements.map((sup, i) => (
                         <p key={i} className="text-xs text-muted-foreground">
-                          + {sup.name} ({formatPrice(sup.priceHt)})
+                          + {sup.name}{sup.qty > 1 ? ` x${sup.qty}` : ''}{sup.priceHt > 0 ? ` (+${formatPrice(computeTtc(sup.priceHt * sup.qty, item.vatRate))})` : ''}
                         </p>
                       ))}
                     </div>

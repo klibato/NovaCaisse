@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useCartStore } from '@/stores/cart.store';
 import { api } from '@/lib/api';
+import { queueTicket } from '@/lib/offline';
 import { formatPrice, centsToEuros, eurosToCents } from '@/lib/utils';
 import {
   Dialog,
@@ -151,15 +152,41 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
         }
       }
 
-      const ticket = await api.post<TicketResponse>('/tickets', {
+      const payload = {
         serviceMode,
         items: ticketItems,
         payments,
         isExpenseNote,
-      });
+      };
 
-      clearCart();
-      onSuccess(ticket);
+      try {
+        const ticket = await api.post<TicketResponse>('/tickets', payload);
+        clearCart();
+        onSuccess(ticket);
+      } catch (networkErr) {
+        // If offline, queue the ticket for later sync
+        if (!navigator.onLine) {
+          await queueTicket(payload);
+          clearCart();
+          onSuccess({
+            id: `offline-${Date.now()}`,
+            sequenceNumber: 0,
+            serviceMode,
+            items: ticketItems,
+            totalHt: 0,
+            totalTtc: payments.reduce((s, p) => s + p.amount, 0),
+            vatDetails: [],
+            payments,
+            hash: 'offline',
+            prevHash: '',
+            signature: '',
+            createdAt: new Date().toISOString(),
+            isExpenseNote,
+          } as TicketResponse);
+        } else {
+          throw networkErr;
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de la validation');
     } finally {
