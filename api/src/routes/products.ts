@@ -8,8 +8,7 @@ const productSchema = {
     properties: {
       name: { type: 'string' as const, minLength: 1 },
       priceHt: { type: 'integer' as const, minimum: 0 },
-      vatRateOnsite: { type: 'number' as const, default: 10.0 },
-      vatRateTakeaway: { type: 'number' as const, default: 5.5 },
+      vatRate: { type: 'number' as const, default: 10.0 },
       categoryId: { type: 'string' as const, nullable: true },
       imageUrl: { type: 'string' as const, nullable: true },
       supplements: {
@@ -75,8 +74,7 @@ export default async function productRoutes(fastify: FastifyInstance) {
       const body = request.body as {
         name: string;
         priceHt: number;
-        vatRateOnsite?: number;
-        vatRateTakeaway?: number;
+        vatRate?: number;
         categoryId?: string | null;
         imageUrl?: string | null;
         supplements?: { name: string; priceHt: number; maxQty: number }[] | null;
@@ -87,8 +85,7 @@ export default async function productRoutes(fastify: FastifyInstance) {
           tenantId: request.user.tenantId,
           name: body.name,
           priceHt: body.priceHt,
-          vatRateOnsite: body.vatRateOnsite ?? 10.0,
-          vatRateTakeaway: body.vatRateTakeaway ?? 5.5,
+          vatRate: body.vatRate ?? 10.0,
           categoryId: body.categoryId ?? null,
           imageUrl: body.imageUrl ?? null,
           supplements: body.supplements ?? undefined,

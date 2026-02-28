@@ -8,8 +8,7 @@ const menuSchema = {
     properties: {
       name: { type: 'string' as const, minLength: 1 },
       priceHt: { type: 'integer' as const, minimum: 0 },
-      vatRateOnsite: { type: 'number' as const, default: 10.0 },
-      vatRateTakeaway: { type: 'number' as const, default: 5.5 },
+      vatRate: { type: 'number' as const, default: 10.0 },
       categoryId: { type: 'string' as const, nullable: true },
       imageUrl: { type: 'string' as const, nullable: true },
       items: {
@@ -46,7 +45,7 @@ export default async function menuRoutes(fastify: FastifyInstance) {
       where: whereClause,
       include: {
         items: {
-          include: { product: { select: { id: true, name: true, priceHt: true } } },
+          include: { product: { select: { id: true, name: true, priceHt: true, vatRate: true } } },
           orderBy: { position: 'asc' },
         },
         category: { select: { id: true, name: true, color: true } },
@@ -87,8 +86,7 @@ export default async function menuRoutes(fastify: FastifyInstance) {
       const body = request.body as {
         name: string;
         priceHt: number;
-        vatRateOnsite?: number;
-        vatRateTakeaway?: number;
+        vatRate?: number;
         categoryId?: string | null;
         imageUrl?: string | null;
         items?: {
@@ -104,8 +102,7 @@ export default async function menuRoutes(fastify: FastifyInstance) {
           tenantId: request.user.tenantId,
           name: body.name,
           priceHt: body.priceHt,
-          vatRateOnsite: body.vatRateOnsite ?? 10.0,
-          vatRateTakeaway: body.vatRateTakeaway ?? 5.5,
+          vatRate: body.vatRate ?? 10.0,
           categoryId: body.categoryId ?? null,
           imageUrl: body.imageUrl ?? null,
           items: body.items
@@ -121,7 +118,7 @@ export default async function menuRoutes(fastify: FastifyInstance) {
         },
         include: {
           items: {
-            include: { product: { select: { id: true, name: true, priceHt: true } } },
+            include: { product: { select: { id: true, name: true, priceHt: true, vatRate: true } } },
             orderBy: { position: 'asc' },
           },
           category: { select: { id: true, name: true, color: true } },
@@ -141,8 +138,7 @@ export default async function menuRoutes(fastify: FastifyInstance) {
       const body = request.body as {
         name?: string;
         priceHt?: number;
-        vatRateOnsite?: number;
-        vatRateTakeaway?: number;
+        vatRate?: number;
         categoryId?: string | null;
         imageUrl?: string | null;
         items?: {
@@ -183,7 +179,7 @@ export default async function menuRoutes(fastify: FastifyInstance) {
           data: menuData,
           include: {
             items: {
-              include: { product: { select: { id: true, name: true, priceHt: true } } },
+              include: { product: { select: { id: true, name: true, priceHt: true, vatRate: true } } },
               orderBy: { position: 'asc' },
             },
             category: { select: { id: true, name: true, color: true } },
