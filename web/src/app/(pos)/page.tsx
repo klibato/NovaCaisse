@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '@/stores/auth.store';
 import { useCartStore } from '@/stores/cart.store';
 import { useConnectivityStore } from '@/stores/connectivity.store';
@@ -68,8 +68,11 @@ export default function PosPage() {
     fetchData();
   }, []);
 
-  // Auto-sync when coming back online
+  // Auto-sync when coming back online (with lock to prevent concurrent syncs)
+  const syncingRef = React.useRef(false);
   const handleSync = useCallback(async () => {
+    if (syncingRef.current) return;
+    syncingRef.current = true;
     try {
       const synced = await syncPendingTickets(async (payload) => {
         return api.post('/tickets', payload);
@@ -82,9 +85,12 @@ export default function PosPage() {
       }
     } catch {
       console.warn('[NovaCaisse] Erreur lors de la synchronisation');
+    } finally {
+      syncingRef.current = false;
     }
   }, [refreshPendingCount]);
 
+  // Trigger sync on browser 'online' event (WiFi reconnect)
   useEffect(() => {
     const onOnline = () => {
       handleSync();
@@ -92,6 +98,39 @@ export default function PosPage() {
     window.addEventListener('online', onOnline);
     return () => window.removeEventListener('online', onOnline);
   }, [handleSync]);
+
+  // Poll API when marked offline to detect container restart
+  const isOnline = useConnectivityStore((s) => s.isOnline);
+  const pendingCount = useConnectivityStore((s) => s.pendingCount);
+
+  useEffect(() => {
+    // Only poll when we're marked offline OR have pending tickets
+    if (isOnline && pendingCount === 0) return;
+
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+    const pollApi = async () => {
+      try {
+        const res = await fetch(`${API_URL}/products`, {
+          method: 'HEAD',
+          signal: AbortSignal.timeout(5000),
+        });
+        if (res.ok || res.status === 401) {
+          // API is reachable (even 401 means server is up)
+          useConnectivityStore.getState().setOnline(true);
+          handleSync();
+        }
+      } catch {
+        // Still unreachable, keep polling
+      }
+    };
+
+    const interval = setInterval(pollApi, 5000);
+    // Also try immediately
+    pollApi();
+
+    return () => clearInterval(interval);
+  }, [isOnline, pendingCount, handleSync]);
 
   const handlePaymentSuccess = (ticket: TicketResponse) => {
     setShowPayment(false);
