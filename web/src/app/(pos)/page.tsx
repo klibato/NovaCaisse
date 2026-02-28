@@ -3,8 +3,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '@/stores/auth.store';
 import { useCartStore } from '@/stores/cart.store';
+import { useConnectivityStore } from '@/stores/connectivity.store';
 import { api } from '@/lib/api';
-import { cacheData, getCachedData, syncPendingTickets, getPendingCount } from '@/lib/offline';
+import { cacheData, getCachedData, syncPendingTickets } from '@/lib/offline';
 import { ProductGrid } from '@/components/pos/ProductGrid';
 import { Cart } from '@/components/pos/Cart';
 import { PaymentModal } from '@/components/pos/PaymentModal';
@@ -12,7 +13,6 @@ import { TicketConfirmation } from '@/components/pos/TicketConfirmation';
 import { InstallPrompt } from '@/components/shared/InstallPrompt';
 import { OfflineBadge } from '@/components/shared/OfflineBadge';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { LogOut, UtensilsCrossed, ShoppingBag, Settings } from 'lucide-react';
@@ -21,6 +21,7 @@ import type { Product, Category, Menu, TicketResponse } from '@/types';
 export default function PosPage() {
   const { user, logout } = useAuthStore();
   const { serviceMode, setServiceMode } = useCartStore();
+  const { refreshPendingCount } = useConnectivityStore();
   const router = useRouter();
   const isAdmin = user?.role === 'OWNER' || user?.role === 'MANAGER';
   const [products, setProducts] = useState<Product[]>([]);
@@ -29,7 +30,7 @@ export default function PosPage() {
   const [loading, setLoading] = useState(true);
   const [showPayment, setShowPayment] = useState(false);
   const [confirmedTicket, setConfirmedTicket] = useState<TicketResponse | null>(null);
-  const [pendingCount, setPendingCount] = useState(0);
+  const [syncNotification, setSyncNotification] = useState<string | null>(null);
 
   // Load data with offline cache fallback
   useEffect(() => {
@@ -51,6 +52,7 @@ export default function PosPage() {
         ]);
       } catch {
         // Network down: load from cache
+        console.warn('[NovaCaisse] Chargement depuis le cache offline');
         const [cachedProds, cachedCats, cachedMenus] = await Promise.all([
           getCachedData<Product[]>('products'),
           getCachedData<Category[]>('categories'),
@@ -66,21 +68,22 @@ export default function PosPage() {
     fetchData();
   }, []);
 
-  // Check pending offline tickets count
-  useEffect(() => {
-    getPendingCount().then(setPendingCount).catch(() => {});
-  }, [confirmedTicket]);
-
   // Auto-sync when coming back online
   const handleSync = useCallback(async () => {
-    const synced = await syncPendingTickets(async (payload) => {
-      return api.post('/tickets', payload);
-    });
-    if (synced > 0) {
-      setPendingCount((c) => Math.max(0, c - synced));
-      alert(`${synced} ticket${synced > 1 ? 's' : ''} synchronisé${synced > 1 ? 's' : ''}`);
+    try {
+      const synced = await syncPendingTickets(async (payload) => {
+        return api.post('/tickets', payload);
+      });
+      if (synced > 0) {
+        await refreshPendingCount();
+        const msg = `${synced} ticket${synced > 1 ? 's' : ''} synchronisé${synced > 1 ? 's' : ''}`;
+        setSyncNotification(msg);
+        setTimeout(() => setSyncNotification(null), 5000);
+      }
+    } catch {
+      console.warn('[NovaCaisse] Erreur lors de la synchronisation');
     }
-  }, []);
+  }, [refreshPendingCount]);
 
   useEffect(() => {
     const onOnline = () => {
@@ -112,16 +115,18 @@ export default function PosPage() {
       {/* Install prompt */}
       <InstallPrompt />
 
+      {/* Sync notification */}
+      {syncNotification && (
+        <div className="flex items-center justify-center bg-green-600 px-4 py-2 text-sm font-medium text-white">
+          {syncNotification}
+        </div>
+      )}
+
       {/* Header */}
       <header className="flex items-center justify-between border-b bg-white px-4 py-3 shadow-sm">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-bold text-foreground">NovaCaisse</h1>
           <OfflineBadge />
-          {pendingCount > 0 && (
-            <Badge variant="outline" className="text-xs text-orange-600 border-orange-300">
-              {pendingCount} en attente
-            </Badge>
-          )}
           <div className="flex items-center gap-2 rounded-lg bg-secondary px-3 py-1.5">
             <UtensilsCrossed
               className={`h-4 w-4 ${serviceMode === 'ONSITE' ? 'text-primary' : 'text-muted-foreground'}`}
