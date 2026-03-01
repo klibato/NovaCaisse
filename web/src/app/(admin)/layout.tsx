@@ -14,6 +14,7 @@ import {
   ArrowLeft,
   LogOut,
 } from 'lucide-react';
+import { ThemeToggle } from '@/components/shared/ThemeToggle';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -44,7 +45,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="flex h-screen">
       {/* Sidebar */}
-      <aside className="flex w-64 flex-col border-r bg-white">
+      <aside className="flex w-64 flex-col border-r bg-card">
         <div className="p-4">
           <h1 className="text-xl font-bold text-foreground">NovaCaisse</h1>
           <p className="text-sm text-muted-foreground">Administration</p>
@@ -81,9 +82,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </Button>
           <div className="flex items-center justify-between px-2">
             <span className="text-xs text-muted-foreground">{user?.name}</span>
-            <Button variant="ghost" size="sm" onClick={logout}>
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <ThemeToggle />
+              <Button variant="ghost" size="sm" onClick={logout}>
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </aside>

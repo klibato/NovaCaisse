@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, Printer, ChefHat, CloudOff } from 'lucide-react';
+import { usePrinterStore } from '@/stores/printer.store';
+import { buildClientTicket, buildKitchenTicket } from '@/lib/thermal-printer';
 import type { TicketResponse } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -41,15 +43,22 @@ export function TicketConfirmation({ ticket, onNewTicket }: TicketConfirmationPr
   const handlePrint = async () => {
     setPrinting(true);
     try {
-      const token = getToken();
-      const res = await fetch(`${API_URL}/tickets/${ticket.id}/print`, {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error('Erreur impression');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
+      const printer = usePrinterStore.getState();
+      if (printer.isConnected) {
+        const data = buildClientTicket(ticket);
+        await printer.print(data);
+      } else {
+        // Fallback: PDF via API
+        const token = getToken();
+        const res = await fetch(`${API_URL}/tickets/${ticket.id}/print`, {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) throw new Error('Erreur impression');
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+      }
     } catch {
       // silently fail
     } finally {
@@ -60,15 +69,22 @@ export function TicketConfirmation({ ticket, onNewTicket }: TicketConfirmationPr
   const handlePrintKitchen = async () => {
     setPrintingKitchen(true);
     try {
-      const token = getToken();
-      const res = await fetch(`${API_URL}/tickets/${ticket.id}/print-kitchen`, {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error('Erreur impression');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
+      const printer = usePrinterStore.getState();
+      if (printer.isConnected) {
+        const data = buildKitchenTicket(ticket);
+        await printer.print(data);
+      } else {
+        // Fallback: PDF via API
+        const token = getToken();
+        const res = await fetch(`${API_URL}/tickets/${ticket.id}/print-kitchen`, {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) throw new Error('Erreur impression');
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+      }
     } catch {
       // silently fail
     } finally {

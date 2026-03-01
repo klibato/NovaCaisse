@@ -62,9 +62,12 @@ class ApiClient {
   async fetch<T>(path: string, options: RequestInit = {}): Promise<T> {
     const token = this.getToken();
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       ...((options.headers as Record<string, string>) || {}),
     };
+
+    if (options.body) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -112,6 +115,10 @@ class ApiClient {
       throw new Error(error.error || `Erreur ${res.status}`);
     }
 
+    if (res.status === 204) {
+      return undefined as T;
+    }
+
     return res.json();
   }
 
@@ -129,6 +136,13 @@ class ApiClient {
   put<T>(path: string, body: unknown) {
     return this.fetch<T>(path, {
       method: 'PUT',
+      body: JSON.stringify(body),
+    });
+  }
+
+  patch<T>(path: string, body: unknown) {
+    return this.fetch<T>(path, {
+      method: 'PATCH',
       body: JSON.stringify(body),
     });
   }
