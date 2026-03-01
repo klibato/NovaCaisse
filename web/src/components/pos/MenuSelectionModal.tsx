@@ -149,7 +149,7 @@ export function MenuSelectionModal({ menu, open, onClose }: MenuSelectionModalPr
                         }`}
                       >
                         {isSelected && (
-                          <div className="h-2 w-2 rounded-full bg-white" />
+                          <div className="h-2 w-2 rounded-full bg-primary-foreground" />
                         )}
                       </div>
                       <span className="font-medium text-foreground">

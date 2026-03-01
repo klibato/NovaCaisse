@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Pencil, Trash2, Check } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, Eye, EyeOff } from 'lucide-react';
 import type { Menu, Product } from '@/types';
 
 interface MenuItemForm {
@@ -152,13 +152,22 @@ export default function MenusPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer ce menu ?')) return;
+  const handleDelete = async (menu: Menu) => {
+    if (!confirm(`Supprimer définitivement ${menu.name} ?`)) return;
     try {
-      await api.delete(`/menus/${id}`);
+      await api.delete(`/menus/${menu.id}`);
       await fetchData();
     } catch (err) {
       console.error('Erreur suppression:', err);
+    }
+  };
+
+  const handleToggle = async (id: string) => {
+    try {
+      await api.patch(`/menus/${id}/toggle`, {});
+      await fetchData();
+    } catch (err) {
+      console.error('Erreur toggle:', err);
     }
   };
 
@@ -196,16 +205,21 @@ export default function MenusPage() {
         {menus.map((menu) => {
           const { fixed, choiceGroups } = groupItems(menu);
           return (
-            <div key={menu.id} className="rounded-lg border bg-white p-4">
+            <div key={menu.id} className="rounded-lg border bg-card p-4">
               <div className="flex items-start justify-between">
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-lg font-semibold">{menu.name}</h3>
-                    {!menu.active && (
-                      <Badge variant="outline" className="text-xs text-muted-foreground">
-                        Inactif
+                    <button
+                      onClick={() => handleToggle(menu.id)}
+                      className="cursor-pointer"
+                      title={menu.active ? 'Désactiver' : 'Activer'}
+                    >
+                      <Badge variant={menu.active ? 'default' : 'secondary'} className="gap-1 text-xs">
+                        {menu.active ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                        {menu.active ? 'Actif' : 'Inactif'}
                       </Badge>
-                    )}
+                    </button>
                   </div>
                   <p className="text-xl font-bold text-primary">
                     {formatPrice(menu.priceHt)} HT
@@ -224,7 +238,7 @@ export default function MenusPage() {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-destructive hover:text-destructive"
-                    onClick={() => handleDelete(menu.id)}
+                    onClick={() => handleDelete(menu)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -351,7 +365,7 @@ export default function MenusPage() {
                   {form.items.map((item) => (
                     <div
                       key={item.productId}
-                      className="flex items-center gap-4 rounded-lg border bg-white p-3"
+                      className="flex items-center gap-4 rounded-lg border bg-card p-3"
                     >
                       <div className="flex-1">
                         <p className="font-medium text-foreground">{item.productName}</p>

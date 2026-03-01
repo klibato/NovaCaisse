@@ -13,7 +13,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react';
 import type { Category } from '@/types';
 
 interface CategoryForm {
@@ -91,13 +91,22 @@ export default function CategoriesPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer cette catégorie ?')) return;
+  const handleDelete = async (cat: Category) => {
+    if (!confirm(`Supprimer définitivement ${cat.name} ?`)) return;
     try {
-      await api.delete(`/categories/${id}`);
+      await api.delete(`/categories/${cat.id}`);
       await fetchData();
     } catch (err) {
       console.error('Erreur suppression:', err);
+    }
+  };
+
+  const handleToggle = async (id: string) => {
+    try {
+      await api.patch(`/categories/${id}/toggle`, {});
+      await fetchData();
+    } catch (err) {
+      console.error('Erreur toggle:', err);
     }
   };
 
@@ -119,7 +128,7 @@ export default function CategoriesPage() {
         {categories.map((cat) => (
           <div
             key={cat.id}
-            className="flex items-center justify-between rounded-lg border bg-white p-4"
+            className="flex items-center justify-between rounded-lg border bg-card p-4"
           >
             <div className="flex items-center gap-3">
               <div
@@ -127,7 +136,19 @@ export default function CategoriesPage() {
                 style={{ backgroundColor: cat.color }}
               />
               <div>
-                <p className="font-semibold">{cat.name}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold">{cat.name}</p>
+                  <button
+                    onClick={() => handleToggle(cat.id)}
+                    className="cursor-pointer"
+                    title={cat.active ? 'Désactiver' : 'Activer'}
+                  >
+                    <Badge variant={cat.active ? 'default' : 'secondary'} className="gap-1 text-xs">
+                      {cat.active ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                      {cat.active ? 'Actif' : 'Inactif'}
+                    </Badge>
+                  </button>
+                </div>
                 <p className="text-sm text-muted-foreground">
                   {cat._count.products} produit{cat._count.products !== 1 ? 's' : ''} — position {cat.position}
                 </p>
@@ -146,7 +167,7 @@ export default function CategoriesPage() {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-destructive hover:text-destructive"
-                onClick={() => handleDelete(cat.id)}
+                onClick={() => handleDelete(cat)}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>

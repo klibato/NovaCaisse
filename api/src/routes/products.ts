@@ -141,7 +141,7 @@ export default async function productRoutes(fastify: FastifyInstance) {
     },
   );
 
-  // DELETE /products/:id (soft delete)
+  // DELETE /products/:id (hard delete)
   fastify.delete(
     '/products/:id',
     { preHandler: rbac(['OWNER', 'MANAGER']) },
@@ -156,9 +156,9 @@ export default async function productRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Produit non trouvé', code: 'NOT_FOUND' });
       }
 
-      await fastify.prisma.product.update({
-        where: { id },
-        data: { active: false },
+      await fastify.prisma.$transaction(async (tx) => {
+        await tx.menuItem.deleteMany({ where: { productId: id } });
+        await tx.product.delete({ where: { id } });
       });
 
       await fastify.prisma.auditLog.create({
@@ -166,11 +166,45 @@ export default async function productRoutes(fastify: FastifyInstance) {
           tenantId: request.user.tenantId,
           userId: request.user.userId,
           action: 'product.delete',
-          details: { productId: id },
+          details: { productId: id, name: existing.name },
         },
       });
 
       return reply.status(204).send();
+    },
+  );
+
+  // PATCH /products/:id/toggle
+  fastify.patch(
+    '/products/:id/toggle',
+    { preHandler: rbac(['OWNER', 'MANAGER']) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      const existing = await fastify.prisma.product.findFirst({
+        where: { id, tenantId: request.user.tenantId },
+      });
+
+      if (!existing) {
+        return reply.status(404).send({ error: 'Produit non trouvé', code: 'NOT_FOUND' });
+      }
+
+      const product = await fastify.prisma.product.update({
+        where: { id },
+        data: { active: !existing.active },
+        include: { category: { select: { id: true, name: true, color: true } } },
+      });
+
+      await fastify.prisma.auditLog.create({
+        data: {
+          tenantId: request.user.tenantId,
+          userId: request.user.userId,
+          action: 'product.toggle',
+          details: { productId: id, active: product.active },
+        },
+      });
+
+      return reply.send(product);
     },
   );
 }

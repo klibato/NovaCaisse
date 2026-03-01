@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Pencil, Trash2, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Eye, EyeOff } from 'lucide-react';
 import type { Product, Category, Supplement } from '@/types';
 
 interface SupplementForm {
@@ -153,13 +153,22 @@ export default function ProductsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer ce produit ?')) return;
+  const handleDelete = async (product: Product) => {
+    if (!confirm(`Supprimer définitivement ${product.name} ?`)) return;
     try {
-      await api.delete(`/products/${id}`);
+      await api.delete(`/products/${product.id}`);
       await fetchData();
     } catch (err) {
       console.error('Erreur suppression:', err);
+    }
+  };
+
+  const handleToggle = async (id: string) => {
+    try {
+      await api.patch(`/products/${id}/toggle`, {});
+      await fetchData();
+    } catch (err) {
+      console.error('Erreur toggle:', err);
     }
   };
 
@@ -177,7 +186,7 @@ export default function ProductsPage() {
         </Button>
       </div>
 
-      <div className="rounded-lg border bg-white">
+      <div className="rounded-lg border bg-card">
         <table className="w-full">
           <thead>
             <tr className="border-b bg-muted/50">
@@ -236,9 +245,16 @@ export default function ProductsPage() {
                   )}
                 </td>
                 <td className="px-4 py-3 text-center">
-                  <Badge variant={product.active ? 'default' : 'secondary'}>
-                    {product.active ? 'Actif' : 'Inactif'}
-                  </Badge>
+                  <button
+                    onClick={() => handleToggle(product.id)}
+                    className="cursor-pointer"
+                    title={product.active ? 'Désactiver' : 'Activer'}
+                  >
+                    <Badge variant={product.active ? 'default' : 'secondary'} className="gap-1">
+                      {product.active ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                      {product.active ? 'Actif' : 'Inactif'}
+                    </Badge>
+                  </button>
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-1">
@@ -254,7 +270,7 @@ export default function ProductsPage() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(product.id)}
+                      onClick={() => handleDelete(product)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
