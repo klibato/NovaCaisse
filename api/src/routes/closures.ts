@@ -105,6 +105,53 @@ export default async function closureRoutes(fastify: FastifyInstance) {
     return reply.send({ closures, total });
   });
 
+  // GET /closures/export — Export CSV des clôtures
+  fastify.get('/closures/export', async (request, reply) => {
+    const query = request.query as { from?: string; to?: string; format?: string };
+
+    if (query.format !== 'csv') {
+      return reply.status(400).send({ error: 'Format non supporté. Utilisez format=csv', code: 'BAD_FORMAT' });
+    }
+
+    const where: Record<string, unknown> = { tenantId: request.user.tenantId };
+    if (query.from || query.to) {
+      const date: Record<string, Date> = {};
+      if (query.from) date.gte = new Date(query.from);
+      if (query.to) {
+        const toDate = new Date(query.to);
+        toDate.setDate(toDate.getDate() + 1);
+        date.lt = toDate;
+      }
+      where.date = date;
+    }
+
+    const closures = await fastify.prisma.closure.findMany({
+      where,
+      orderBy: { date: 'asc' },
+    });
+
+    const header = 'date,type,caHt,caTtc,nbTickets,nbAnnulations';
+    const rows = closures.map((c) => {
+      const date = new Date(c.date).toISOString().split('T')[0];
+      const totals = c.totals as {
+        totalHt: number;
+        totalTtc: number;
+        ticketCount: number;
+        cancellationCount?: number;
+      };
+      return `${date},${c.type},${totals.totalHt},${totals.totalTtc},${totals.ticketCount},${totals.cancellationCount ?? 0}`;
+    });
+
+    const csv = [header, ...rows].join('\n');
+    const from = query.from ?? 'all';
+    const to = query.to ?? 'all';
+
+    return reply
+      .header('Content-Type', 'text/csv; charset=utf-8')
+      .header('Content-Disposition', `attachment; filename="clotures-${from}-${to}.csv"`)
+      .send(csv);
+  });
+
   // GET /closures/:id — Détail
   fastify.get('/closures/:id', async (request, reply) => {
     const { id } = request.params as { id: string };

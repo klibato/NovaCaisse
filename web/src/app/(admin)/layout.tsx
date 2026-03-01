@@ -10,6 +10,7 @@ import {
   Package,
   FolderOpen,
   UtensilsCrossed,
+  Receipt,
   ClipboardList,
   ArrowLeft,
   LogOut,
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   { href: '/products', label: 'Produits', icon: Package },
   { href: '/categories', label: 'Catégories', icon: FolderOpen },
   { href: '/menus', label: 'Menus', icon: UtensilsCrossed },
+  { href: '/tickets', label: 'Tickets', icon: Receipt },
   { href: '/closures', label: 'Clôtures', icon: ClipboardList },
 ];
 

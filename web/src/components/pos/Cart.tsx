@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { useCartStore } from '@/stores/cart.store';
 import { computeTtc, formatPrice } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,18 @@ export function Cart({ onEncaisser }: CartProps) {
   const ht = totalHt();
   const ttc = totalTtc();
   const vat = vatDetails();
+
+  const [bounce, setBounce] = useState(false);
+  const prevTtcRef = useRef(ttc);
+  useEffect(() => {
+    if (ttc !== prevTtcRef.current && ttc > 0) {
+      setBounce(true);
+      const timer = setTimeout(() => setBounce(false), 300);
+      prevTtcRef.current = ttc;
+      return () => clearTimeout(timer);
+    }
+    prevTtcRef.current = ttc;
+  }, [ttc]);
 
   if (items.length === 0) {
     return (
@@ -145,7 +158,7 @@ export function Cart({ onEncaisser }: CartProps) {
           </div>
         ))}
         <Separator className="my-2" />
-        <div className="flex justify-between text-xl font-bold">
+        <div className={`flex justify-between text-xl font-bold transition-transform ${bounce ? 'scale-110' : 'scale-100'}`}>
           <span>Total TTC</span>
           <span>{formatPrice(ttc)}</span>
         </div>
