@@ -191,7 +191,7 @@ export default async function menuRoutes(fastify: FastifyInstance) {
     },
   );
 
-  // DELETE /menus/:id (soft delete)
+  // DELETE /menus/:id (hard delete, cascade menuItems via schema)
   fastify.delete(
     '/menus/:id',
     { preHandler: rbac(['OWNER', 'MANAGER']) },
@@ -206,12 +206,40 @@ export default async function menuRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Menu non trouvé', code: 'NOT_FOUND' });
       }
 
-      await fastify.prisma.menu.update({
-        where: { id },
-        data: { active: false },
-      });
+      await fastify.prisma.menu.delete({ where: { id } });
 
       return reply.status(204).send();
+    },
+  );
+
+  // PATCH /menus/:id/toggle
+  fastify.patch(
+    '/menus/:id/toggle',
+    { preHandler: rbac(['OWNER', 'MANAGER']) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      const existing = await fastify.prisma.menu.findFirst({
+        where: { id, tenantId: request.user.tenantId },
+      });
+
+      if (!existing) {
+        return reply.status(404).send({ error: 'Menu non trouvé', code: 'NOT_FOUND' });
+      }
+
+      const menu = await fastify.prisma.menu.update({
+        where: { id },
+        data: { active: !existing.active },
+        include: {
+          items: {
+            include: { product: { select: { id: true, name: true, priceHt: true, vatRate: true } } },
+            orderBy: { position: 'asc' },
+          },
+          category: { select: { id: true, name: true, color: true } },
+        },
+      });
+
+      return reply.send(menu);
     },
   );
 }

@@ -12,10 +12,20 @@ import { PaymentModal } from '@/components/pos/PaymentModal';
 import { TicketConfirmation } from '@/components/pos/TicketConfirmation';
 import { InstallPrompt } from '@/components/shared/InstallPrompt';
 import { OfflineBadge } from '@/components/shared/OfflineBadge';
+import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import { LogOut, UtensilsCrossed, ShoppingBag, Settings } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { LogOut, UtensilsCrossed, ShoppingBag, Settings, ClipboardList, Printer } from 'lucide-react';
+import { usePrinterStore } from '@/stores/printer.store';
+import { formatPrice } from '@/lib/utils';
 import type { Product, Category, Menu, TicketResponse } from '@/types';
 
 export default function PosPage() {
@@ -31,6 +41,24 @@ export default function PosPage() {
   const [showPayment, setShowPayment] = useState(false);
   const [confirmedTicket, setConfirmedTicket] = useState<TicketResponse | null>(null);
   const [syncNotification, setSyncNotification] = useState<string | null>(null);
+  const [showClosure, setShowClosure] = useState(false);
+  const [closureLoading, setClosureLoading] = useState(false);
+  const [closureResult, setClosureResult] = useState<{ totalTtc: number; ticketCount: number } | null>(null);
+  const [closureError, setClosureError] = useState('');
+
+  const handleClosure = async () => {
+    setClosureLoading(true);
+    setClosureError('');
+    setClosureResult(null);
+    try {
+      const result = await api.post<{ totals: { totalTtc: number; ticketCount: number } }>('/closures/daily', {});
+      setClosureResult(result.totals);
+    } catch (err) {
+      setClosureError(err instanceof Error ? err.message : 'Erreur lors de la clôture');
+    } finally {
+      setClosureLoading(false);
+    }
+  };
 
   // Load data with offline cache fallback
   useEffect(() => {
@@ -162,7 +190,7 @@ export default function PosPage() {
       )}
 
       {/* Header */}
-      <header className="flex items-center justify-between border-b bg-white px-4 py-3 shadow-sm">
+      <header className="flex items-center justify-between border-b bg-card px-4 py-3 shadow-sm">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-bold text-foreground">NovaCaisse</h1>
           <OfflineBadge />
@@ -188,14 +216,24 @@ export default function PosPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {usePrinterStore.getState().isSupported && (
+            <PrinterButton />
+          )}
+          <ThemeToggle />
           <span className="text-sm text-muted-foreground">
             {user?.name}
           </span>
           {isAdmin && (
-            <Button variant="outline" size="sm" onClick={() => router.push('/dashboard')}>
-              <Settings className="mr-1 h-4 w-4" />
-              Back-office
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={() => { setShowClosure(true); setClosureResult(null); setClosureError(''); }}>
+                <ClipboardList className="mr-1 h-4 w-4" />
+                Clôture Z
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => router.push('/dashboard')}>
+                <Settings className="mr-1 h-4 w-4" />
+                Back-office
+              </Button>
+            </>
           )}
           <Button variant="ghost" size="sm" onClick={logout}>
             <LogOut className="mr-1 h-4 w-4" />
@@ -216,7 +254,7 @@ export default function PosPage() {
         </div>
 
         {/* Cart - right */}
-        <div className="w-[380px] border-l bg-white">
+        <div className="w-[380px] border-l bg-card">
           <Cart onEncaisser={() => setShowPayment(true)} />
         </div>
       </div>
@@ -237,6 +275,69 @@ export default function PosPage() {
           onNewTicket={handleNewTicket}
         />
       )}
+
+      {/* Clôture Z Modal */}
+      <Dialog open={showClosure} onOpenChange={setShowClosure}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Clôture Z</DialogTitle>
+            <DialogDescription>
+              Générer la clôture journalière du jour.
+            </DialogDescription>
+          </DialogHeader>
+
+          {closureError && (
+            <p className="rounded-md bg-destructive/10 p-2 text-center text-sm text-destructive">
+              {closureError}
+            </p>
+          )}
+
+          {closureResult ? (
+            <div className="space-y-3">
+              <div className="rounded-lg bg-green-50 p-4 text-center dark:bg-green-950">
+                <p className="text-sm text-muted-foreground">CA TTC du jour</p>
+                <p className="text-3xl font-bold text-green-600">{formatPrice(closureResult.totalTtc)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">Nombre de tickets</p>
+                <p className="text-xl font-bold">{closureResult.ticketCount}</p>
+              </div>
+              <Button className="w-full" onClick={() => setShowClosure(false)}>
+                Fermer
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setShowClosure(false)}>
+                Annuler
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={handleClosure}
+                disabled={closureLoading}
+              >
+                {closureLoading ? 'Génération...' : 'Générer la clôture du jour'}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function PrinterButton() {
+  const { isConnected, connect, disconnect } = usePrinterStore();
+
+  return (
+    <Button
+      variant={isConnected ? 'default' : 'outline'}
+      size="sm"
+      onClick={isConnected ? disconnect : connect}
+      title={isConnected ? 'Imprimante connectée — cliquer pour déconnecter' : 'Connecter une imprimante'}
+    >
+      <Printer className="mr-1 h-4 w-4" />
+      {isConnected ? 'Imprimante' : 'Imprimante'}
+    </Button>
   );
 }

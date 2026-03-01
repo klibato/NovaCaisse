@@ -116,7 +116,7 @@ export function ProductGrid({ products, categories, menus }: ProductGridProps) {
           <button
             key={product.id}
             onClick={() => handleProductClick(product)}
-            className="relative flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-white p-4 shadow-sm transition-all hover:border-primary hover:shadow-md active:scale-95"
+            className="relative flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-card p-4 shadow-sm transition-all hover:border-primary hover:shadow-md active:scale-95"
             style={{ minHeight: '100px' }}
           >
             {product.supplements && product.supplements.length > 0 && (
