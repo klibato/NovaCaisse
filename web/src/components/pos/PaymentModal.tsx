@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useCartStore } from '@/stores/cart.store';
+import { useConnectivityStore } from '@/stores/connectivity.store';
 import { api } from '@/lib/api';
 import { queueTicket } from '@/lib/offline';
 import { formatPrice, centsToEuros, eurosToCents } from '@/lib/utils';
@@ -164,18 +165,22 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
         clearCart();
         onSuccess(ticket);
       } catch (networkErr) {
-        // If offline, queue the ticket for later sync
-        if (!navigator.onLine) {
+        // If offline or API unreachable, queue the ticket for later sync
+        const connectivity = useConnectivityStore.getState();
+        if (!navigator.onLine || !connectivity.isOnline) {
+          console.warn('[NovaCaisse] Ticket mis en file d\'attente (offline)');
           await queueTicket(payload);
+          connectivity.incrementPending();
+          connectivity.setOnline(false);
           clearCart();
           onSuccess({
             id: `offline-${Date.now()}`,
-            sequenceNumber: 0,
+            sequenceNumber: -1,
             serviceMode,
             items: ticketItems,
-            totalHt: 0,
+            totalHt: totalHt(),
             totalTtc: payments.reduce((s, p) => s + p.amount, 0),
-            vatDetails: [],
+            vatDetails: vatDetails(),
             payments,
             hash: 'offline',
             prevHash: '',
