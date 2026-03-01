@@ -25,6 +25,13 @@ import {
   FileText,
   Receipt,
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { PaymentMethod, TicketResponse, Payment } from '@/types';
 
 interface PaymentModalProps {
@@ -53,6 +60,14 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
     card: '',
     meal_voucher: '',
     check: '',
+  });
+  const [splitMode, setSplitMode] = useState<'amount' | 'article'>('amount');
+  const [itemPayments, setItemPayments] = useState<Record<string, PaymentMethod>>(() => {
+    const init: Record<string, PaymentMethod> = {};
+    for (const item of items) {
+      init[item.id] = 'card';
+    }
+    return init;
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -103,6 +118,43 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
 
     await submitTicket(payments);
   };
+
+  const handleSplitByArticleConfirm = async () => {
+    const totals = new Map<PaymentMethod, number>();
+    for (const item of items) {
+      const method = itemPayments[item.id] || 'card';
+      const supplementsHt = item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0);
+      const itemHt = (item.priceHt + supplementsHt) * item.qty;
+      const itemTtc = Math.round(itemHt * (1 + item.vatRate / 100));
+      totals.set(method, (totals.get(method) ?? 0) + itemTtc);
+    }
+
+    const payments: Payment[] = [];
+    for (const [method, amount] of totals.entries()) {
+      if (amount > 0) {
+        payments.push({ method, amount });
+      }
+    }
+
+    if (payments.length === 0) {
+      setError('Aucun paiement');
+      return;
+    }
+
+    await submitTicket(payments);
+  };
+
+  const splitTotals = (() => {
+    const totals = new Map<PaymentMethod, number>();
+    for (const item of items) {
+      const method = itemPayments[item.id] || 'card';
+      const supplementsHt = item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0);
+      const itemHt = (item.priceHt + supplementsHt) * item.qty;
+      const itemTtc = Math.round(itemHt * (1 + item.vatRate / 100));
+      totals.set(method, (totals.get(method) ?? 0) + itemTtc);
+    }
+    return totals;
+  })();
 
   const submitTicket = async (payments: Payment[]) => {
     setIsSubmitting(true);
@@ -320,58 +372,141 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
           </>
         ) : (
           <>
-            {/* Mixed payment */}
-            <div className="space-y-3">
-              {PAYMENT_METHODS.map(({ method, label, icon }) => (
-                <div key={method} className="flex items-center gap-3">
-                  <div className="flex w-32 items-center gap-2">
-                    {icon}
-                    <span className="text-sm font-medium">{label}</span>
-                  </div>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={mixedPayments[method]}
-                    onChange={(e) =>
-                      setMixedPayments((prev) => ({
-                        ...prev,
-                        [method]: e.target.value,
-                      }))
-                    }
-                    placeholder="0.00"
-                    className="h-12 text-right text-lg"
-                  />
-                  <span className="text-sm text-muted-foreground">€</span>
+            {/* Split mode toggle */}
+            <div className="flex items-center justify-center gap-2 rounded-lg bg-secondary p-1">
+              <button
+                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  splitMode === 'amount' ? 'bg-card shadow-sm' : 'text-muted-foreground'
+                }`}
+                onClick={() => setSplitMode('amount')}
+              >
+                Par montant
+              </button>
+              <button
+                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  splitMode === 'article' ? 'bg-card shadow-sm' : 'text-muted-foreground'
+                }`}
+                onClick={() => setSplitMode('article')}
+              >
+                Par article
+              </button>
+            </div>
+
+            {splitMode === 'amount' ? (
+              <>
+                {/* Mixed payment by amount */}
+                <div className="space-y-3">
+                  {PAYMENT_METHODS.map(({ method, label, icon }) => (
+                    <div key={method} className="flex items-center gap-3">
+                      <div className="flex w-32 items-center gap-2">
+                        {icon}
+                        <span className="text-sm font-medium">{label}</span>
+                      </div>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={mixedPayments[method]}
+                        onChange={(e) =>
+                          setMixedPayments((prev) => ({
+                            ...prev,
+                            [method]: e.target.value,
+                          }))
+                        }
+                        placeholder="0.00"
+                        className="h-12 text-right text-lg"
+                      />
+                      <span className="text-sm text-muted-foreground">€</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
 
-            <div className="rounded-lg bg-secondary p-3">
-              <div className="flex justify-between text-sm">
-                <span>Total saisi</span>
-                <span className="font-semibold">{formatPrice(mixedTotal)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Reste à payer</span>
-                <span
-                  className={`font-semibold ${
-                    mixedRemaining > 1 ? 'text-destructive' : 'text-green-600'
-                  }`}
+                <div className="rounded-lg bg-secondary p-3">
+                  <div className="flex justify-between text-sm">
+                    <span>Total saisi</span>
+                    <span className="font-semibold">{formatPrice(mixedTotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Reste à payer</span>
+                    <span
+                      className={`font-semibold ${
+                        mixedRemaining > 1 ? 'text-destructive' : 'text-green-600'
+                      }`}
+                    >
+                      {mixedRemaining > 0 ? formatPrice(mixedRemaining) : '0.00 €'}
+                    </span>
+                  </div>
+                </div>
+
+                <Button
+                  className="w-full bg-green-600 hover:bg-green-700"
+                  size="lg"
+                  onClick={handleMixedConfirm}
+                  disabled={isSubmitting || Math.abs(mixedRemaining) > 1}
                 >
-                  {mixedRemaining > 0 ? formatPrice(mixedRemaining) : '0.00 €'}
-                </span>
-              </div>
-            </div>
+                  {isSubmitting ? 'Validation...' : 'Valider le paiement'}
+                </Button>
+              </>
+            ) : (
+              <>
+                {/* Split by article */}
+                <div className="max-h-[300px] space-y-2 overflow-y-auto">
+                  {items.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="truncate text-sm font-medium">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          x{item.qty} — {formatPrice(
+                            Math.round((item.priceHt + item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0)) * item.qty * (1 + item.vatRate / 100))
+                          )}
+                        </p>
+                      </div>
+                      <Select
+                        value={itemPayments[item.id] || 'card'}
+                        onValueChange={(val) =>
+                          setItemPayments((prev) => ({
+                            ...prev,
+                            [item.id]: val as PaymentMethod,
+                          }))
+                        }
+                      >
+                        <SelectTrigger className="w-36">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cash">Espèces</SelectItem>
+                          <SelectItem value="card">CB</SelectItem>
+                          <SelectItem value="meal_voucher">Ticket Resto</SelectItem>
+                          <SelectItem value="check">Chèque</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </div>
 
-            <Button
-              className="w-full bg-green-600 hover:bg-green-700"
-              size="lg"
-              onClick={handleMixedConfirm}
-              disabled={isSubmitting || Math.abs(mixedRemaining) > 1}
-            >
-              {isSubmitting ? 'Validation...' : 'Valider le paiement'}
-            </Button>
+                <div className="rounded-lg bg-secondary p-3 space-y-1">
+                  {PAYMENT_METHODS.map(({ method, label }) => {
+                    const total = splitTotals.get(method) ?? 0;
+                    if (total === 0) return null;
+                    return (
+                      <div key={method} className="flex justify-between text-sm">
+                        <span>{label}</span>
+                        <span className="font-semibold">{formatPrice(total)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <Button
+                  className="w-full bg-green-600 hover:bg-green-700"
+                  size="lg"
+                  onClick={handleSplitByArticleConfirm}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Validation...' : 'Valider le paiement'}
+                </Button>
+              </>
+            )}
           </>
         )}
       </DialogContent>

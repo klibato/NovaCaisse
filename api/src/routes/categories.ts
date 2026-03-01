@@ -110,7 +110,7 @@ export default async function categoryRoutes(fastify: FastifyInstance) {
     },
   );
 
-  // DELETE /categories/:id (soft delete)
+  // DELETE /categories/:id (hard delete)
   fastify.delete(
     '/categories/:id',
     { preHandler: rbac(['OWNER', 'MANAGER']) },
@@ -125,12 +125,38 @@ export default async function categoryRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Catégorie non trouvée', code: 'NOT_FOUND' });
       }
 
-      await fastify.prisma.category.update({
-        where: { id },
-        data: { active: false },
+      await fastify.prisma.$transaction(async (tx) => {
+        await tx.product.updateMany({ where: { categoryId: id }, data: { categoryId: null } });
+        await tx.menu.updateMany({ where: { categoryId: id }, data: { categoryId: null } });
+        await tx.category.delete({ where: { id } });
       });
 
       return reply.status(204).send();
+    },
+  );
+
+  // PATCH /categories/:id/toggle
+  fastify.patch(
+    '/categories/:id/toggle',
+    { preHandler: rbac(['OWNER', 'MANAGER']) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+
+      const existing = await fastify.prisma.category.findFirst({
+        where: { id, tenantId: request.user.tenantId },
+      });
+
+      if (!existing) {
+        return reply.status(404).send({ error: 'Catégorie non trouvée', code: 'NOT_FOUND' });
+      }
+
+      const category = await fastify.prisma.category.update({
+        where: { id },
+        data: { active: !existing.active },
+        include: { _count: { select: { products: true } } },
+      });
+
+      return reply.send(category);
     },
   );
 }

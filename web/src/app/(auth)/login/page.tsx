@@ -45,8 +45,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-xl">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 dark:from-background dark:to-background">
+      <div className="w-full max-w-sm rounded-2xl bg-card p-8 shadow-xl">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-foreground">NovaCaisse</h1>
           <p className="mt-2 text-muted-foreground">Entrez votre PIN</p>
