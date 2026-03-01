@@ -23,9 +23,10 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { LogOut, UtensilsCrossed, ShoppingBag, Settings, ClipboardList, Printer } from 'lucide-react';
+import { LogOut, UtensilsCrossed, ShoppingBag, Settings, ClipboardList, Printer, Keyboard } from 'lucide-react';
 import { usePrinterStore } from '@/stores/printer.store';
 import { formatPrice } from '@/lib/utils';
+import { useKeyboardShortcuts, SHORTCUTS } from '@/hooks/useKeyboardShortcuts';
 import type { Product, Category, Menu, TicketResponse } from '@/types';
 
 export default function PosPage() {
@@ -45,6 +46,17 @@ export default function PosPage() {
   const [closureLoading, setClosureLoading] = useState(false);
   const [closureResult, setClosureResult] = useState<{ totalTtc: number; ticketCount: number } | null>(null);
   const [closureError, setClosureError] = useState('');
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
+  useKeyboardShortcuts({
+    onOpenPayment: () => { if (!showPayment && !confirmedTicket) setShowPayment(true); },
+    onCloseModal: () => {
+      if (showShortcuts) { setShowShortcuts(false); return; }
+      if (showPayment) { setShowPayment(false); return; }
+      if (showClosure) { setShowClosure(false); return; }
+    },
+    onToggleHelp: () => setShowShortcuts((v) => !v),
+  });
 
   const handleClosure = async () => {
     setClosureLoading(true);
@@ -219,6 +231,15 @@ export default function PosPage() {
           {usePrinterStore.getState().isSupported && (
             <PrinterButton />
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowShortcuts(true)}
+            title="Raccourcis clavier"
+          >
+            <Keyboard className="h-4 w-4" />
+            ?
+          </Button>
           <ThemeToggle />
           <span className="text-sm text-muted-foreground">
             {user?.name}
@@ -275,6 +296,28 @@ export default function PosPage() {
           onNewTicket={handleNewTicket}
         />
       )}
+
+      {/* Shortcuts Help Modal */}
+      <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Raccourcis clavier</DialogTitle>
+            <DialogDescription>
+              Raccourcis disponibles sur l&apos;écran de caisse
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {SHORTCUTS.map((s) => (
+              <div key={s.key} className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">{s.description}</span>
+                <kbd className="rounded border bg-secondary px-2 py-1 text-xs font-mono font-semibold">
+                  {s.key}
+                </kbd>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Clôture Z Modal */}
       <Dialog open={showClosure} onOpenChange={setShowClosure}>

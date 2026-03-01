@@ -130,8 +130,11 @@ model Ticket {
   vatDetails     Json // [{rate, baseHt, amount}]
   payments       Json // [{method, amount}]
   isExpenseNote  Boolean     @default(false)
-  isCancellation Boolean     @default(false) // ticket d'annulation
-  cancelledRef   String? // id du ticket annulé si applicable
+  isCancellation    Boolean     @default(false) // ticket d'annulation
+  cancelledRef      String? // id du ticket annulé si applicable
+  cancelled         Boolean     @default(false) // true si ce ticket a été annulé
+  cancelledTicketId String? // id du ticket d'annulation qui a annulé celui-ci
+  cancellationReason String? // motif d'annulation
   hash           String // SHA-256
   prevHash       String // hash du ticket précédent
   signature      String // HMAC-SHA256
