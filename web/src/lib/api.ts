@@ -59,6 +59,12 @@ class ApiClient {
     }
   }
 
+  private getTenantSlug(): string | null {
+    if (typeof document === 'undefined') return null;
+    const match = document.cookie.match(/(?:^|; )tenant-slug=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+
   async fetch<T>(path: string, options: RequestInit = {}): Promise<T> {
     const token = this.getToken();
     const headers: Record<string, string> = {
@@ -71,6 +77,11 @@ class ApiClient {
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const slug = this.getTenantSlug();
+    if (slug) {
+      headers['X-Tenant-Slug'] = slug;
     }
 
     let res: Response;
