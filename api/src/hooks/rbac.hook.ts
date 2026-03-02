@@ -6,7 +6,7 @@ export function rbac(allowedRoles: Role[]) {
     const userRole = request.user?.role;
 
     if (!userRole || !allowedRoles.includes(userRole)) {
-      reply.status(403).send({
+      return reply.status(403).send({
         error: 'Accès interdit',
         code: 'FORBIDDEN',
       });

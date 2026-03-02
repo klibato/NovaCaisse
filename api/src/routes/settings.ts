@@ -1,5 +1,20 @@
 import type { FastifyInstance } from 'fastify';
 
+const settingsSchema = {
+  body: {
+    type: 'object' as const,
+    properties: {
+      name: { type: 'string' as const, minLength: 1 },
+      address: { type: 'string' as const, minLength: 1 },
+      siret: { type: 'string' as const, pattern: '^[0-9]{14}$' },
+      vatNumber: { type: 'string' as const, nullable: true },
+      phone: { type: 'string' as const, nullable: true },
+      email: { type: 'string' as const, format: 'email' },
+    },
+    additionalProperties: false,
+  },
+};
+
 export default async function settingsRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', fastify.authenticate);
 
@@ -28,7 +43,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
   });
 
   // PUT /settings — modifier les infos (OWNER uniquement)
-  fastify.put('/settings', async (request, reply) => {
+  fastify.put('/settings', { schema: settingsSchema }, async (request, reply) => {
     if (request.user.role !== 'OWNER') {
       return reply.status(403).send({ error: 'Seul le propriétaire peut modifier les paramètres', code: 'FORBIDDEN' });
     }
