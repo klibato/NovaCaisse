@@ -104,14 +104,14 @@ export function Cart({ onEncaisser }: CartProps) {
                     </div>
                   )}
                 </div>
-                <p className="text-sm font-semibold">{formatPrice(lineTtc)}</p>
+                <p className="text-sm font-semibold text-foreground">{formatPrice(lineTtc)}</p>
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <div className="flex items-center gap-1">
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-8 w-8 border border-border bg-background"
                     onClick={() => updateQty(item.id, item.qty - 1)}
                   >
                     <Minus className="h-3 w-3" />
@@ -122,7 +122,7 @@ export function Cart({ onEncaisser }: CartProps) {
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-8 w-8 border border-border bg-background"
                     onClick={() => updateQty(item.id, item.qty + 1)}
                   >
                     <Plus className="h-3 w-3" />
@@ -143,7 +143,7 @@ export function Cart({ onEncaisser }: CartProps) {
       </div>
 
       {/* Totals */}
-      <div className="border-t bg-gray-50 px-4 py-3">
+      <div className="border-t bg-secondary px-4 py-3">
         <div className="flex justify-between text-sm text-muted-foreground">
           <span>Total HT</span>
           <span>{formatPrice(ht)}</span>
@@ -158,7 +158,7 @@ export function Cart({ onEncaisser }: CartProps) {
           </div>
         ))}
         <Separator className="my-2" />
-        <div className={`flex justify-between text-xl font-bold transition-transform ${bounce ? 'scale-110' : 'scale-100'}`}>
+        <div className={`flex justify-between text-xl font-bold text-foreground transition-transform ${bounce ? 'scale-110' : 'scale-100'}`}>
           <span>Total TTC</span>
           <span>{formatPrice(ttc)}</span>
         </div>
