@@ -10,6 +10,7 @@ import prismaPlugin from './plugins/prisma.js';
 import redisPlugin from './plugins/redis.js';
 import authPlugin from './plugins/auth.js';
 import tenantPlugin from './plugins/tenant.js';
+import subdomainPlugin from './plugins/subdomain.js';
 import authRoutes from './routes/auth.js';
 import ticketRoutes from './routes/tickets.js';
 import productRoutes from './routes/products.js';
@@ -17,6 +18,8 @@ import categoryRoutes from './routes/categories.js';
 import menuRoutes from './routes/menus.js';
 import closureRoutes from './routes/closures.js';
 import dashboardRoutes from './routes/dashboard.js';
+import userRoutes from './routes/users.js';
+import settingsRoutes from './routes/settings.js';
 import { setupClosureJobs } from './jobs/closures.job.js';
 
 const envToLogger: Record<string, object | boolean> = {
@@ -79,6 +82,7 @@ export async function buildApp() {
   await app.register(redisPlugin);
   await app.register(authPlugin);
   await app.register(tenantPlugin);
+  await app.register(subdomainPlugin);
 
   // --- Routes ---
   await app.register(authRoutes);
@@ -88,6 +92,8 @@ export async function buildApp() {
   await app.register(menuRoutes);
   await app.register(closureRoutes);
   await app.register(dashboardRoutes);
+  await app.register(userRoutes);
+  await app.register(settingsRoutes);
 
   // --- Health Check ---
   app.get('/health', async () => {

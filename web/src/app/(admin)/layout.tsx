@@ -12,6 +12,8 @@ import {
   UtensilsCrossed,
   Receipt,
   ClipboardList,
+  Users,
+  Settings,
   ArrowLeft,
   LogOut,
 } from 'lucide-react';
@@ -24,6 +26,8 @@ const NAV_ITEMS = [
   { href: '/menus', label: 'Menus', icon: UtensilsCrossed },
   { href: '/tickets', label: 'Tickets', icon: Receipt },
   { href: '/closures', label: 'Clôtures', icon: ClipboardList },
+  { href: '/users', label: 'Utilisateurs', icon: Users },
+  { href: '/settings', label: 'Paramètres', icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
