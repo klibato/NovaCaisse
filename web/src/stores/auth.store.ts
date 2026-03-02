@@ -28,9 +28,17 @@ export const useAuthStore = create<AuthState>()(
       login: async (pinCode: string) => {
         set({ isLoading: true, error: null });
         try {
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          // Send tenant slug if available (from subdomain cookie)
+          if (typeof document !== 'undefined') {
+            const match = document.cookie.match(/(?:^|; )tenant-slug=([^;]*)/);
+            if (match) {
+              headers['X-Tenant-Slug'] = decodeURIComponent(match[1]);
+            }
+          }
           const res = await fetch(`${API_URL}/auth/login`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ pinCode }),
           });
 
