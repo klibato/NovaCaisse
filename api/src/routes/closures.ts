@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import { generateClosure } from '../isca/closure.js';
+import { rbac } from '../hooks/rbac.hook.js';
 
 export default async function closureRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', fastify.authenticate);
 
-  // POST /closures/daily — Clôture journalière
-  fastify.post('/closures/daily', async (request, reply) => {
+  // POST /closures/daily — Clôture journalière (OWNER/MANAGER uniquement)
+  fastify.post('/closures/daily', { preHandler: rbac(['OWNER', 'MANAGER']) }, async (request, reply) => {
     const body = request.body as { date?: string } | null;
     const targetDate = body?.date ? new Date(body.date) : new Date();
 
@@ -43,8 +44,8 @@ export default async function closureRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // POST /closures/monthly — Clôture mensuelle
-  fastify.post('/closures/monthly', async (request, reply) => {
+  // POST /closures/monthly — Clôture mensuelle (OWNER/MANAGER uniquement)
+  fastify.post('/closures/monthly', { preHandler: rbac(['OWNER', 'MANAGER']) }, async (request, reply) => {
     const body = request.body as { date?: string } | null;
     const targetDate = body?.date ? new Date(body.date) : new Date();
 
