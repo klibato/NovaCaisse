@@ -47,8 +47,10 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
     // Find all active users (optionally filtered by tenant)
     const whereClause: Record<string, unknown> = { active: true };
-    if (tenantId) {
-      whereClause.tenantId = tenantId;
+    // Priorité : slug header > body tenantId
+    const resolvedTenantId = (request as unknown as { tenantIdFromSlug: string | null }).tenantIdFromSlug || tenantId;
+    if (resolvedTenantId) {
+      whereClause.tenantId = resolvedTenantId;
     }
 
     const users = await fastify.prisma.user.findMany({
