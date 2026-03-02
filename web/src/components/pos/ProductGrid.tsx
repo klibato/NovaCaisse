@@ -94,12 +94,12 @@ export function ProductGrid({ products, categories, menus }: ProductGridProps) {
       </div>
 
       {/* Category tabs */}
-      <div className={`mb-4 flex gap-2 overflow-x-auto pb-2 scrollbar-hide ${isSearching ? 'pointer-events-none opacity-40' : ''}`}>
+      <div className={`mb-4 flex gap-2 overflow-x-auto px-1 py-1 scrollbar-hide ${isSearching ? 'pointer-events-none opacity-40' : ''}`}>
         <button
           onClick={() => setActiveCategory(null)}
           className={`whitespace-nowrap flex-shrink-0 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${
             activeCategory === null
-              ? 'bg-primary text-primary-foreground'
+              ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background'
               : 'bg-card border border-border text-foreground hover:bg-accent'
           }`}
         >
@@ -109,13 +109,14 @@ export function ProductGrid({ products, categories, menus }: ProductGridProps) {
           <button
             key={cat.id}
             onClick={() => setActiveCategory(cat.id)}
-            className="whitespace-nowrap flex-shrink-0 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-80"
+            className={`whitespace-nowrap flex-shrink-0 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-80 ${
+              activeCategory === cat.id ? 'ring-2 ring-offset-2 ring-offset-background' : ''
+            }`}
             style={{
               backgroundColor:
                 activeCategory === cat.id ? cat.color : `${cat.color}cc`,
-              outline: activeCategory === cat.id ? `3px solid ${cat.color}` : 'none',
-              outlineOffset: '2px',
-            }}
+              '--tw-ring-color': cat.color,
+            } as React.CSSProperties}
           >
             {cat.name}
           </button>
