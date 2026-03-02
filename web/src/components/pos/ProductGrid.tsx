@@ -94,13 +94,13 @@ export function ProductGrid({ products, categories, menus }: ProductGridProps) {
       </div>
 
       {/* Category tabs */}
-      <div className={`mb-4 flex gap-2 overflow-x-auto pb-1 ${isSearching ? 'pointer-events-none opacity-40' : ''}`}>
+      <div className={`mb-4 flex gap-2 overflow-x-auto pb-2 scrollbar-hide ${isSearching ? 'pointer-events-none opacity-40' : ''}`}>
         <button
           onClick={() => setActiveCategory(null)}
-          className={`shrink-0 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${
+          className={`whitespace-nowrap flex-shrink-0 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${
             activeCategory === null
-              ? 'bg-foreground text-background'
-              : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-card border border-border text-foreground hover:bg-accent'
           }`}
         >
           Tout
@@ -109,7 +109,7 @@ export function ProductGrid({ products, categories, menus }: ProductGridProps) {
           <button
             key={cat.id}
             onClick={() => setActiveCategory(cat.id)}
-            className="shrink-0 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-80"
+            className="whitespace-nowrap flex-shrink-0 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-80"
             style={{
               backgroundColor:
                 activeCategory === cat.id ? cat.color : `${cat.color}cc`,
@@ -129,7 +129,7 @@ export function ProductGrid({ products, categories, menus }: ProductGridProps) {
           <button
             key={`menu-${menu.id}`}
             onClick={() => { triggerFlash(`menu-${menu.id}`); setSelectedMenu(menu); }}
-            className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-primary/30 bg-primary/5 p-4 shadow-sm transition-all hover:border-primary hover:shadow-md active:scale-95 ${flashedId === `menu-${menu.id}` ? 'ring-4 ring-green-400 bg-green-50' : ''}`}
+            className={`relative flex flex-col items-center justify-center rounded-lg border border-primary/30 bg-card p-4 shadow-sm transition-all hover:border-primary hover:shadow-md active:scale-95 ${flashedId === `menu-${menu.id}` ? 'ring-4 ring-green-400 bg-green-50 dark:bg-green-950' : ''}`}
             style={{ minHeight: '100px' }}
           >
             <Badge className="absolute right-2 top-2 bg-primary text-xs">
@@ -157,7 +157,7 @@ export function ProductGrid({ products, categories, menus }: ProductGridProps) {
           <button
             key={product.id}
             onClick={() => handleProductClick(product)}
-            className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-transparent bg-card p-4 shadow-sm transition-all hover:border-primary hover:shadow-md active:scale-95 ${flashedId === product.id ? 'ring-4 ring-green-400 bg-green-50' : ''}`}
+            className={`relative flex flex-col items-center justify-center rounded-lg border border-border bg-card p-4 shadow-sm transition-all hover:border-primary hover:shadow-md active:scale-95 ${flashedId === product.id ? 'ring-4 ring-green-400 bg-green-50 dark:bg-green-950' : ''}`}
             style={{ minHeight: '100px' }}
           >
             {product.supplements && product.supplements.length > 0 && (
