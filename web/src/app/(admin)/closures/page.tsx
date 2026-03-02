@@ -115,6 +115,27 @@ export default function ClosuresPage() {
     });
   };
 
+  const handleExportCsv = () => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const token = typeof window !== 'undefined'
+      ? JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
+      : null;
+
+    fetch(`${API_URL}/closures/export?format=csv`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((res) => res.blob())
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `clotures-export.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      })
+      .catch(() => alert('Erreur lors de l\'export'));
+  };
+
   const handleExport = () => {
     if (!selectedClosure) return;
     const c = selectedClosure;
@@ -155,10 +176,16 @@ export default function ClosuresPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Clôtures</h1>
-        <Button onClick={handleDailyClosure} disabled={creating}>
-          <Plus className="mr-2 h-4 w-4" />
-          {creating ? 'Clôture en cours...' : 'Clôture du jour'}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExportCsv}>
+            <FileDown className="mr-2 h-4 w-4" />
+            Exporter CSV
+          </Button>
+          <Button onClick={handleDailyClosure} disabled={creating}>
+            <Plus className="mr-2 h-4 w-4" />
+            {creating ? 'Clôture en cours...' : 'Clôture du jour'}
+          </Button>
+        </div>
       </div>
 
       {loading && closures.length === 0 ? (

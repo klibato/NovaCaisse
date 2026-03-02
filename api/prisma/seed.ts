@@ -12,6 +12,7 @@ async function main() {
     update: {},
     create: {
       name: 'Kebab du Coin',
+      slug: 'kebab-du-coin',
       siret: '12345678901234',
       address: '12 Rue de la Paix, 75001 Paris',
       email: 'contact@kebabducoin.fr',
