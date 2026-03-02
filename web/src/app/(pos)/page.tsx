@@ -266,7 +266,7 @@ export default function PosPage() {
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Product grid - left */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="min-w-0 flex-1 overflow-y-auto p-4">
           <ProductGrid
             products={products}
             categories={categories}

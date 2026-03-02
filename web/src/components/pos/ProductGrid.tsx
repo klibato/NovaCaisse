@@ -71,7 +71,7 @@ export function ProductGrid({ products, categories, menus }: ProductGridProps) {
   };
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-w-0 flex-col">
       {/* Search bar */}
       <div className="relative mb-3">
         <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
