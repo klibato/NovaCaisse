@@ -40,7 +40,17 @@ export async function buildApp() {
 
   // --- Plugins ---
   await app.register(cors, {
-    origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+    origin: (origin: string | undefined, cb: (err: Error | null, allow?: string | boolean) => void) => {
+      if (!origin) return cb(null, true);
+      if (
+        origin === 'http://localhost:3000' ||
+        origin.match(/^http:\/\/[\w-]+\.localhost:3000$/) ||
+        origin.match(/^https:\/\/[\w-]+\.novacaisse\.fr$/)
+      ) {
+        return cb(null, origin);
+      }
+      cb(new Error('CORS not allowed'), false);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   });
