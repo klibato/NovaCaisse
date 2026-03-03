@@ -112,7 +112,14 @@ export default async function productRoutes(fastify: FastifyInstance) {
     { preHandler: rbac(['OWNER', 'MANAGER']) },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      const body = request.body as Record<string, unknown>;
+      const body = request.body as {
+        name?: string;
+        priceHt?: number;
+        vatRate?: number;
+        categoryId?: string | null;
+        imageUrl?: string | null;
+        supplements?: { name: string; priceHt: number; maxQty: number }[] | null;
+      };
 
       const existing = await fastify.prisma.product.findFirst({
         where: { id, tenantId: request.user.tenantId },
@@ -124,7 +131,14 @@ export default async function productRoutes(fastify: FastifyInstance) {
 
       const product = await fastify.prisma.product.update({
         where: { id },
-        data: body,
+        data: {
+          ...(body.name !== undefined && { name: body.name }),
+          ...(body.priceHt !== undefined && { priceHt: body.priceHt }),
+          ...(body.vatRate !== undefined && { vatRate: body.vatRate }),
+          ...(body.categoryId !== undefined && { categoryId: body.categoryId }),
+          ...(body.imageUrl !== undefined && { imageUrl: body.imageUrl }),
+          ...(body.supplements !== undefined && { supplements: body.supplements ?? undefined }),
+        },
         include: { category: { select: { id: true, name: true, color: true } } },
       });
 
