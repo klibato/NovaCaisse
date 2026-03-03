@@ -91,7 +91,7 @@ export default async function categoryRoutes(fastify: FastifyInstance) {
     { preHandler: rbac(['OWNER', 'MANAGER']) },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      const body = request.body as Record<string, unknown>;
+      const body = request.body as { name?: string; color?: string; position?: number };
 
       const existing = await fastify.prisma.category.findFirst({
         where: { id, tenantId: request.user.tenantId },
@@ -103,7 +103,11 @@ export default async function categoryRoutes(fastify: FastifyInstance) {
 
       const category = await fastify.prisma.category.update({
         where: { id },
-        data: body,
+        data: {
+          ...(body.name !== undefined && { name: body.name }),
+          ...(body.color !== undefined && { color: body.color }),
+          ...(body.position !== undefined && { position: body.position }),
+        },
       });
 
       return reply.send(category);
