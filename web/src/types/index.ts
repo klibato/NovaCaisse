@@ -153,6 +153,7 @@ export interface TicketResponse {
     vatRate: number;
     supplements?: CartItemSupplement[];
     options?: CartItemOption[];
+    menuName?: string;
   }[];
   totalHt: number;
   totalTtc: number;

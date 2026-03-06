@@ -361,35 +361,86 @@ export default function MenusPage() {
             {form.items.length > 0 && (
               <div>
                 <Label className="mb-2 block text-base">Configuration des items</Label>
-                <div className="space-y-3">
-                  {form.items.map((item) => (
-                    <div
-                      key={item.productId}
-                      className="flex items-center gap-4 rounded-lg border bg-card p-3"
-                    >
-                      <div className="flex-1">
-                        <p className="font-medium text-foreground">{item.productName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatPrice(item.priceHt)} HT — TVA {item.vatRate}%
-                        </p>
+                <p className="mb-3 text-sm text-muted-foreground">
+                  Chaque produit est &quot;Fixe&quot; (toujours inclus) ou dans un groupe de choix. Cliquez sur un groupe pour l&apos;assigner.
+                </p>
+                <div className="space-y-2">
+                  {form.items.map((item) => {
+                    // Collect all existing choice groups from form
+                    const PREDEFINED_GROUPS = ['boisson', 'accompagnement', 'sauce', 'dessert'];
+                    const existingGroups = form.items
+                      .filter((i) => i.isChoice && i.choiceGroup)
+                      .map((i) => i.choiceGroup);
+                    const allGroups = [...new Set([...PREDEFINED_GROUPS, ...existingGroups])];
+
+                    return (
+                      <div
+                        key={item.productId}
+                        className="rounded-lg border bg-card p-3"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <p className="font-medium text-foreground">{item.productName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatPrice(item.priceHt)} HT — TVA {item.vatRate}%
+                            </p>
+                          </div>
+                          {item.isChoice && item.choiceGroup && (
+                            <Badge className="bg-primary text-xs">{item.choiceGroup}</Badge>
+                          )}
+                          {!item.isChoice && (
+                            <Badge variant="secondary" className="text-xs">Fixe</Badge>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateMenuItem(item.productId, 'isChoice', false);
+                              updateMenuItem(item.productId, 'choiceGroup', '');
+                            }}
+                            className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                              !item.isChoice
+                                ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            Fixe
+                          </button>
+                          {allGroups.map((group) => (
+                            <button
+                              key={group}
+                              type="button"
+                              onClick={() => {
+                                updateMenuItem(item.productId, 'isChoice', true);
+                                updateMenuItem(item.productId, 'choiceGroup', group);
+                              }}
+                              className={`rounded-md border px-2.5 py-1 text-xs font-medium capitalize transition-colors ${
+                                item.isChoice && item.choiceGroup === group
+                                  ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
+                                  : 'border-border hover:border-primary/50'
+                              }`}
+                            >
+                              {group}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const name = prompt('Nom du groupe de choix :');
+                              if (name && name.trim()) {
+                                updateMenuItem(item.productId, 'isChoice', true);
+                                updateMenuItem(item.productId, 'choiceGroup', name.trim().toLowerCase());
+                              }
+                            }}
+                            className="rounded-md border border-dashed border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors"
+                          >
+                            + Autre
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          checked={item.isChoice}
-                          onCheckedChange={(v) => updateMenuItem(item.productId, 'isChoice', v)}
-                        />
-                        <Label className="text-xs whitespace-nowrap">Choix</Label>
-                      </div>
-                      {item.isChoice && (
-                        <Input
-                          value={item.choiceGroup}
-                          onChange={(e) => updateMenuItem(item.productId, 'choiceGroup', e.target.value)}
-                          placeholder="boisson"
-                          className="w-32"
-                        />
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

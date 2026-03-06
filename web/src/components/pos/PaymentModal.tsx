@@ -163,7 +163,7 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
     setError('');
 
     try {
-      const ticketItems: { name: string; qty: number; priceHt: number; vatRate: number; supplements?: typeof items[0]['supplements']; options?: typeof items[0]['options'] }[] = [];
+      const ticketItems: { name: string; qty: number; priceHt: number; vatRate: number; supplements?: typeof items[0]['supplements']; options?: typeof items[0]['options']; menuName?: string }[] = [];
 
       for (const item of items) {
         if (item.isMenu && item.menuItems && item.menuItems.length > 0) {
@@ -182,7 +182,8 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
                 allocated += proratedHt;
               }
               ticketItems.push({
-                name: `${item.name} — ${mi.name}`,
+                name: mi.name,
+                menuName: item.name,
                 qty: item.qty,
                 priceHt: proratedHt,
                 vatRate: mi.vatRate,
