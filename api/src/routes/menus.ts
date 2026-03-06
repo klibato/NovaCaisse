@@ -45,7 +45,15 @@ export default async function menuRoutes(fastify: FastifyInstance) {
       where: whereClause,
       include: {
         items: {
-          include: { product: { select: { id: true, name: true, priceHt: true, vatRate: true } } },
+          include: { product: {
+              select: {
+                id: true, name: true, priceHt: true, vatRate: true,
+                optionGroups: {
+                  orderBy: { position: 'asc' as const },
+                  include: { choices: { orderBy: { position: 'asc' as const } } },
+                },
+              },
+            } },
           orderBy: { position: 'asc' },
         },
         category: { select: { id: true, name: true, color: true } },
@@ -118,7 +126,15 @@ export default async function menuRoutes(fastify: FastifyInstance) {
         },
         include: {
           items: {
-            include: { product: { select: { id: true, name: true, priceHt: true, vatRate: true } } },
+            include: { product: {
+              select: {
+                id: true, name: true, priceHt: true, vatRate: true,
+                optionGroups: {
+                  orderBy: { position: 'asc' as const },
+                  include: { choices: { orderBy: { position: 'asc' as const } } },
+                },
+              },
+            } },
             orderBy: { position: 'asc' },
           },
           category: { select: { id: true, name: true, color: true } },
@@ -179,7 +195,15 @@ export default async function menuRoutes(fastify: FastifyInstance) {
           data: menuData,
           include: {
             items: {
-              include: { product: { select: { id: true, name: true, priceHt: true, vatRate: true } } },
+              include: { product: {
+              select: {
+                id: true, name: true, priceHt: true, vatRate: true,
+                optionGroups: {
+                  orderBy: { position: 'asc' as const },
+                  include: { choices: { orderBy: { position: 'asc' as const } } },
+                },
+              },
+            } },
               orderBy: { position: 'asc' },
             },
             category: { select: { id: true, name: true, color: true } },
@@ -232,7 +256,15 @@ export default async function menuRoutes(fastify: FastifyInstance) {
         data: { active: !existing.active },
         include: {
           items: {
-            include: { product: { select: { id: true, name: true, priceHt: true, vatRate: true } } },
+            include: { product: {
+              select: {
+                id: true, name: true, priceHt: true, vatRate: true,
+                optionGroups: {
+                  orderBy: { position: 'asc' as const },
+                  include: { choices: { orderBy: { position: 'asc' as const } } },
+                },
+              },
+            } },
             orderBy: { position: 'asc' },
           },
           category: { select: { id: true, name: true, color: true } },

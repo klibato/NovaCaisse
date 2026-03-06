@@ -186,6 +186,7 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
                 qty: item.qty,
                 priceHt: proratedHt,
                 vatRate: mi.vatRate,
+                options: mi.options && mi.options.length > 0 ? mi.options : undefined,
               });
             }
           } else {
