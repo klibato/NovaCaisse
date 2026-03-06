@@ -9,12 +9,19 @@ const PAYMENT_LABELS: Record<string, string> = {
   check: 'Chèque',
 };
 
+interface TicketItemOption {
+  groupName: string;
+  choiceName: string;
+  priceHt: number;
+}
+
 interface TicketItem {
   name: string;
   qty: number;
   priceHt: number;
   vatRate: number;
   supplements?: { name: string; priceHt: number; qty: number }[];
+  options?: TicketItemOption[];
 }
 
 interface VatDetail {
@@ -122,7 +129,11 @@ export async function generateClientPdf(ticket: Ticket, tenant: TenantInfo): Pro
           (s, sup) => s + sup.priceHt * sup.qty,
           0,
         );
-        const lineHt = (item.priceHt + supplementsHt) * item.qty;
+        const optionsHt = (item.options ?? []).reduce(
+          (s, opt) => s + opt.priceHt,
+          0,
+        );
+        const lineHt = (item.priceHt + supplementsHt + optionsHt) * item.qty;
         const lineTtc = computeTtcCents(lineHt, item.vatRate);
 
         doc.font(fontBold).text(
@@ -132,6 +143,16 @@ export async function generateClientPdf(ticket: Ticket, tenant: TenantInfo): Pro
           { continued: true, width: contentWidth - 50 },
         );
         doc.font(font).text(fmt(lineTtc), { align: 'right' });
+
+        if (item.options && item.options.length > 0) {
+          for (const opt of item.options) {
+            const optLabel = opt.priceHt > 0
+              ? `  > ${opt.choiceName} (+${fmt(computeTtcCents(opt.priceHt, item.vatRate))})`
+              : `  > ${opt.choiceName}`;
+            doc.font(font).fontSize(6).text(optLabel);
+            doc.fontSize(7);
+          }
+        }
 
         if (item.supplements && item.supplements.length > 0) {
           for (const sup of item.supplements) {
@@ -238,6 +259,14 @@ export async function generateKitchenPdf(ticket: Ticket): Promise<Buffer> {
 
     for (const item of items) {
       doc.font(fontBold).fontSize(12).text(`${item.qty}x ${item.name}`);
+
+      if (item.options && item.options.length > 0) {
+        for (const opt of item.options) {
+          doc.font(fontBold).fontSize(11).text(
+            `  > ${opt.choiceName.toUpperCase()}`,
+          );
+        }
+      }
 
       if (item.supplements && item.supplements.length > 0) {
         for (const sup of item.supplements) {

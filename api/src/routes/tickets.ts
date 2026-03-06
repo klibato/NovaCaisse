@@ -31,6 +31,18 @@ const createTicketSchema = {
                 },
               },
             },
+            options: {
+              type: 'array' as const,
+              items: {
+                type: 'object' as const,
+                required: ['groupName', 'choiceName', 'priceHt'],
+                properties: {
+                  groupName: { type: 'string' as const },
+                  choiceName: { type: 'string' as const },
+                  priceHt: { type: 'integer' as const, minimum: 0 },
+                },
+              },
+            },
           },
         },
       },
