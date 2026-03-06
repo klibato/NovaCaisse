@@ -202,6 +202,73 @@ async function main() {
   });
   console.log(`Menu created: ${menu.name} with ${menu.items.length} items`);
 
+  // ─── Option Groups ───
+  const [tacosProduct, burgerProduct] = [products[0], products[2]];
+
+  // Tacos Classique — Viande (obligatoire, choix unique)
+  await prisma.optionGroup.create({
+    data: {
+      tenantId: tenant.id,
+      productId: tacosProduct.id,
+      name: 'Viande',
+      required: true,
+      multiple: false,
+      maxChoices: 1,
+      position: 0,
+      choices: {
+        create: [
+          { name: 'Poulet', priceHt: 0, position: 0 },
+          { name: 'Bœuf', priceHt: 0, position: 1 },
+          { name: 'Mixte', priceHt: 0, position: 2 },
+          { name: 'Tenders', priceHt: 0, position: 3 },
+        ],
+      },
+    },
+  });
+
+  // Tacos Classique — Sauce (obligatoire, choix unique)
+  await prisma.optionGroup.create({
+    data: {
+      tenantId: tenant.id,
+      productId: tacosProduct.id,
+      name: 'Sauce',
+      required: true,
+      multiple: false,
+      maxChoices: 1,
+      position: 1,
+      choices: {
+        create: [
+          { name: 'Algérienne', priceHt: 0, position: 0 },
+          { name: 'Samouraï', priceHt: 0, position: 1 },
+          { name: 'Biggy', priceHt: 0, position: 2 },
+          { name: 'Blanche', priceHt: 0, position: 3 },
+        ],
+      },
+    },
+  });
+
+  // Burger Classic — Personnalisation (optionnel, choix multiples)
+  await prisma.optionGroup.create({
+    data: {
+      tenantId: tenant.id,
+      productId: burgerProduct.id,
+      name: 'Personnalisation',
+      required: false,
+      multiple: true,
+      maxChoices: 3,
+      position: 0,
+      choices: {
+        create: [
+          { name: 'Sans oignon', priceHt: 0, position: 0 },
+          { name: 'Sans salade', priceHt: 0, position: 1 },
+          { name: 'Sans tomate', priceHt: 0, position: 2 },
+        ],
+      },
+    },
+  });
+
+  console.log('Option groups created for Tacos Classique and Burger Classic');
+
   console.log('Seeding complete!');
 }
 

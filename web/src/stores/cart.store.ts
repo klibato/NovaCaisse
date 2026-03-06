@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CartItem, CartItemSupplement, Menu, MenuCartDetail, Product, ServiceMode, VatDetail } from '@/types';
+import type { CartItem, CartItemSupplement, CartItemOption, Menu, MenuCartDetail, Product, ServiceMode, VatDetail } from '@/types';
 import { computeTtc, computeVatAmount } from '@/lib/utils';
 
 interface CartState {
@@ -7,6 +7,7 @@ interface CartState {
   serviceMode: ServiceMode;
   addItem: (product: Product) => void;
   addItemWithSupplements: (product: Product, supplements: CartItemSupplement[]) => void;
+  addItemWithOptions: (product: Product, supplements: CartItemSupplement[], options: CartItemOption[]) => void;
   addMenu: (menu: Menu, selectedItems: MenuCartDetail[]) => void;
   removeItem: (id: string) => void;
   updateQty: (id: string, qty: number) => void;
@@ -66,6 +67,23 @@ export const useCartStore = create<CartState>()((set, get) => ({
         priceHt: product.priceHt,
         vatRate,
         supplements,
+      };
+      return { items: [...state.items, newItem] };
+    });
+  },
+
+  addItemWithOptions: (product: Product, supplements: CartItemSupplement[], options: CartItemOption[]) => {
+    set((state) => {
+      const vatRate = Number(product.vatRate);
+      const newItem: CartItem = {
+        id: `cart-${nextId++}`,
+        productId: product.id,
+        name: product.name,
+        qty: 1,
+        priceHt: product.priceHt,
+        vatRate,
+        supplements,
+        options,
       };
       return { items: [...state.items, newItem] };
     });
@@ -133,7 +151,11 @@ export const useCartStore = create<CartState>()((set, get) => ({
         (s, sup) => s + sup.priceHt * sup.qty,
         0
       );
-      return sum + (item.priceHt + supplementsHt) * item.qty;
+      const optionsHt = (item.options ?? []).reduce(
+        (s, opt) => s + opt.priceHt,
+        0
+      );
+      return sum + (item.priceHt + supplementsHt + optionsHt) * item.qty;
     }, 0);
   },
 
@@ -145,13 +167,17 @@ export const useCartStore = create<CartState>()((set, get) => ({
         (s, sup) => s + sup.priceHt * sup.qty,
         0
       );
+      const optionsHt = (item.options ?? []).reduce(
+        (s, opt) => s + opt.priceHt,
+        0
+      );
       if (item.isMenu && item.menuItems && item.menuItems.length > 0) {
-        const prorated = prorateMenuHt(item.priceHt + supplementsHt, item.menuItems);
+        const prorated = prorateMenuHt(item.priceHt + supplementsHt + optionsHt, item.menuItems);
         for (const p of prorated) {
           total += computeTtc(p.baseHt * item.qty, p.rate);
         }
       } else {
-        const itemHt = (item.priceHt + supplementsHt) * item.qty;
+        const itemHt = (item.priceHt + supplementsHt + optionsHt) * item.qty;
         total += computeTtc(itemHt, item.vatRate);
       }
     }
@@ -167,9 +193,13 @@ export const useCartStore = create<CartState>()((set, get) => ({
         (s, sup) => s + sup.priceHt * sup.qty,
         0
       );
+      const optionsHt = (item.options ?? []).reduce(
+        (s, opt) => s + opt.priceHt,
+        0
+      );
 
       if (item.isMenu && item.menuItems && item.menuItems.length > 0) {
-        const prorated = prorateMenuHt(item.priceHt + supplementsHt, item.menuItems);
+        const prorated = prorateMenuHt(item.priceHt + supplementsHt + optionsHt, item.menuItems);
         for (const p of prorated) {
           const baseHt = p.baseHt * item.qty;
           const vatAmount = computeVatAmount(baseHt, p.rate);
@@ -182,7 +212,7 @@ export const useCartStore = create<CartState>()((set, get) => ({
           }
         }
       } else {
-        const itemHt = (item.priceHt + supplementsHt) * item.qty;
+        const itemHt = (item.priceHt + supplementsHt + optionsHt) * item.qty;
         const vatAmount = computeVatAmount(itemHt, item.vatRate);
         const existing = vatMap.get(item.vatRate);
         if (existing) {

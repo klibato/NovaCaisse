@@ -124,7 +124,8 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
     for (const item of items) {
       const method = itemPayments[item.id] || 'card';
       const supplementsHt = item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0);
-      const itemHt = (item.priceHt + supplementsHt) * item.qty;
+      const optionsHt = (item.options ?? []).reduce((s, opt) => s + opt.priceHt, 0);
+      const itemHt = (item.priceHt + supplementsHt + optionsHt) * item.qty;
       const itemTtc = Math.round(itemHt * (1 + item.vatRate / 100));
       totals.set(method, (totals.get(method) ?? 0) + itemTtc);
     }
@@ -149,7 +150,8 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
     for (const item of items) {
       const method = itemPayments[item.id] || 'card';
       const supplementsHt = item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0);
-      const itemHt = (item.priceHt + supplementsHt) * item.qty;
+      const optionsHt = (item.options ?? []).reduce((s, opt) => s + opt.priceHt, 0);
+      const itemHt = (item.priceHt + supplementsHt + optionsHt) * item.qty;
       const itemTtc = Math.round(itemHt * (1 + item.vatRate / 100));
       totals.set(method, (totals.get(method) ?? 0) + itemTtc);
     }
@@ -161,7 +163,7 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
     setError('');
 
     try {
-      const ticketItems: { name: string; qty: number; priceHt: number; vatRate: number; supplements?: typeof items[0]['supplements'] }[] = [];
+      const ticketItems: { name: string; qty: number; priceHt: number; vatRate: number; supplements?: typeof items[0]['supplements']; options?: typeof items[0]['options'] }[] = [];
 
       for (const item of items) {
         if (item.isMenu && item.menuItems && item.menuItems.length > 0) {
@@ -201,6 +203,7 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
             priceHt: item.priceHt,
             vatRate: item.vatRate,
             supplements: item.supplements.length > 0 ? item.supplements : undefined,
+            options: item.options && item.options.length > 0 ? item.options : undefined,
           });
         }
       }
@@ -457,7 +460,7 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
                         <p className="truncate text-sm font-medium">{item.name}</p>
                         <p className="text-xs text-muted-foreground">
                           x{item.qty} — {formatPrice(
-                            Math.round((item.priceHt + item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0)) * item.qty * (1 + item.vatRate / 100))
+                            Math.round((item.priceHt + item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0) + (item.options ?? []).reduce((s, opt) => s + opt.priceHt, 0)) * item.qty * (1 + item.vatRate / 100))
                           )}
                         </p>
                       </div>

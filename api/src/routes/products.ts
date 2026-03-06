@@ -24,6 +24,60 @@ const productSchema = {
           },
         },
       },
+      optionGroups: {
+        type: 'array' as const,
+        nullable: true,
+        items: {
+          type: 'object' as const,
+          required: ['name'],
+          properties: {
+            name: { type: 'string' as const },
+            required: { type: 'boolean' as const },
+            multiple: { type: 'boolean' as const },
+            maxChoices: { type: 'integer' as const, minimum: 1 },
+            position: { type: 'integer' as const },
+            choices: {
+              type: 'array' as const,
+              items: {
+                type: 'object' as const,
+                required: ['name'],
+                properties: {
+                  name: { type: 'string' as const },
+                  priceHt: { type: 'integer' as const, minimum: 0 },
+                  position: { type: 'integer' as const },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
+interface OptionChoiceInput {
+  name: string;
+  priceHt?: number;
+  position?: number;
+}
+
+interface OptionGroupInput {
+  name: string;
+  required?: boolean;
+  multiple?: boolean;
+  maxChoices?: number;
+  position?: number;
+  choices?: OptionChoiceInput[];
+}
+
+const PRODUCT_INCLUDE = {
+  category: { select: { id: true, name: true, color: true } },
+  optionGroups: {
+    orderBy: { position: 'asc' as const },
+    include: {
+      choices: {
+        orderBy: { position: 'asc' as const },
+      },
     },
   },
 };
@@ -43,7 +97,7 @@ export default async function productRoutes(fastify: FastifyInstance) {
 
     const products = await fastify.prisma.product.findMany({
       where: whereClause,
-      include: { category: { select: { id: true, name: true, color: true } } },
+      include: PRODUCT_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });
 
@@ -56,7 +110,7 @@ export default async function productRoutes(fastify: FastifyInstance) {
 
     const product = await fastify.prisma.product.findFirst({
       where: { id, tenantId: request.user.tenantId },
-      include: { category: { select: { id: true, name: true, color: true } } },
+      include: PRODUCT_INCLUDE,
     });
 
     if (!product) {
@@ -78,6 +132,7 @@ export default async function productRoutes(fastify: FastifyInstance) {
         categoryId?: string | null;
         imageUrl?: string | null;
         supplements?: { name: string; priceHt: number; maxQty: number }[] | null;
+        optionGroups?: OptionGroupInput[] | null;
       };
 
       const product = await fastify.prisma.product.create({
@@ -89,8 +144,27 @@ export default async function productRoutes(fastify: FastifyInstance) {
           categoryId: body.categoryId ?? null,
           imageUrl: body.imageUrl ?? null,
           supplements: body.supplements ?? undefined,
+          optionGroups: body.optionGroups
+            ? {
+                create: body.optionGroups.map((g, gi) => ({
+                  tenantId: request.user.tenantId,
+                  name: g.name,
+                  required: g.required ?? true,
+                  multiple: g.multiple ?? false,
+                  maxChoices: g.maxChoices ?? 1,
+                  position: g.position ?? gi,
+                  choices: {
+                    create: (g.choices ?? []).map((c, ci) => ({
+                      name: c.name,
+                      priceHt: c.priceHt ?? 0,
+                      position: c.position ?? ci,
+                    })),
+                  },
+                })),
+              }
+            : undefined,
         },
-        include: { category: { select: { id: true, name: true, color: true } } },
+        include: PRODUCT_INCLUDE,
       });
 
       await fastify.prisma.auditLog.create({
@@ -119,6 +193,7 @@ export default async function productRoutes(fastify: FastifyInstance) {
         categoryId?: string | null;
         imageUrl?: string | null;
         supplements?: { name: string; priceHt: number; maxQty: number }[] | null;
+        optionGroups?: OptionGroupInput[] | null;
       };
 
       const existing = await fastify.prisma.product.findFirst({
@@ -127,6 +202,37 @@ export default async function productRoutes(fastify: FastifyInstance) {
 
       if (!existing) {
         return reply.status(404).send({ error: 'Produit non trouvé', code: 'NOT_FOUND' });
+      }
+
+      // If optionGroups provided, replace all (delete old, create new)
+      if (body.optionGroups !== undefined) {
+        await fastify.prisma.optionGroup.deleteMany({
+          where: { productId: id },
+        });
+
+        if (body.optionGroups && body.optionGroups.length > 0) {
+          for (let gi = 0; gi < body.optionGroups.length; gi++) {
+            const g = body.optionGroups[gi];
+            await fastify.prisma.optionGroup.create({
+              data: {
+                tenantId: request.user.tenantId,
+                productId: id,
+                name: g.name,
+                required: g.required ?? true,
+                multiple: g.multiple ?? false,
+                maxChoices: g.maxChoices ?? 1,
+                position: g.position ?? gi,
+                choices: {
+                  create: (g.choices ?? []).map((c, ci) => ({
+                    name: c.name,
+                    priceHt: c.priceHt ?? 0,
+                    position: c.position ?? ci,
+                  })),
+                },
+              },
+            });
+          }
+        }
       }
 
       const product = await fastify.prisma.product.update({
@@ -139,7 +245,7 @@ export default async function productRoutes(fastify: FastifyInstance) {
           ...(body.imageUrl !== undefined && { imageUrl: body.imageUrl }),
           ...(body.supplements !== undefined && { supplements: body.supplements ?? undefined }),
         },
-        include: { category: { select: { id: true, name: true, color: true } } },
+        include: PRODUCT_INCLUDE,
       });
 
       await fastify.prisma.auditLog.create({
@@ -206,7 +312,7 @@ export default async function productRoutes(fastify: FastifyInstance) {
       const product = await fastify.prisma.product.update({
         where: { id },
         data: { active: !existing.active },
-        include: { category: { select: { id: true, name: true, color: true } } },
+        include: PRODUCT_INCLUDE,
       });
 
       await fastify.prisma.auditLog.create({
