@@ -22,6 +22,7 @@ interface TicketItem {
   vatRate: number;
   supplements?: { name: string; priceHt: number; qty: number }[];
   options?: TicketItemOption[];
+  menuName?: string;
 }
 
 interface VatDetail {
@@ -124,46 +125,91 @@ export async function generateClientPdf(ticket: Ticket, tenant: TenantInfo): Pro
     if (!ticket.isExpenseNote) {
       doc.font(font).fontSize(7);
 
-      for (const item of items) {
-        const supplementsHt = (item.supplements ?? []).reduce(
-          (s, sup) => s + sup.priceHt * sup.qty,
-          0,
-        );
-        const optionsHt = (item.options ?? []).reduce(
-          (s, opt) => s + opt.priceHt,
-          0,
-        );
-        const lineHt = (item.priceHt + supplementsHt + optionsHt) * item.qty;
-        const lineTtc = computeTtcCents(lineHt, item.vatRate);
+      // Group consecutive items by menuName for display
+      let i = 0;
+      while (i < items.length) {
+        const item = items[i];
 
-        doc.font(fontBold).text(
-          `${item.qty}x ${item.name}`,
-          margin,
-          undefined,
-          { continued: true, width: contentWidth - 50 },
-        );
-        doc.font(font).text(fmt(lineTtc), { align: 'right' });
+        if (item.menuName) {
+          // Collect all consecutive items with same menuName and qty
+          const menuItems: TicketItem[] = [item];
+          while (i + 1 < items.length && items[i + 1].menuName === item.menuName && items[i + 1].qty === item.qty) {
+            i++;
+            menuItems.push(items[i]);
+          }
 
-        if (item.options && item.options.length > 0) {
-          for (const opt of item.options) {
-            const optLabel = opt.priceHt > 0
-              ? `  > ${opt.choiceName} (+${fmt(computeTtcCents(opt.priceHt, item.vatRate))})`
-              : `  > ${opt.choiceName}`;
-            doc.font(font).fontSize(6).text(optLabel);
+          // Total TTC for the whole menu group
+          let menuTotalHt = 0;
+          for (const mi of menuItems) {
+            const optHt = (mi.options ?? []).reduce((s, o) => s + o.priceHt, 0);
+            menuTotalHt += (mi.priceHt + optHt) * mi.qty;
+          }
+          // Use first item's vatRate for approximate TTC display of menu header
+          const menuTtc = computeTtcCents(menuTotalHt, menuItems[0].vatRate);
+
+          doc.font(fontBold).text(
+            `${item.qty}x ${item.menuName}`,
+            margin,
+            undefined,
+            { continued: true, width: contentWidth - 50 },
+          );
+          doc.font(font).text(fmt(menuTtc), { align: 'right' });
+
+          // Sub-items indented
+          for (const mi of menuItems) {
+            doc.font(font).fontSize(6).text(`  - ${mi.name}`);
+            if (mi.options && mi.options.length > 0) {
+              for (const opt of mi.options) {
+                const optLabel = opt.priceHt > 0
+                  ? `    > ${opt.choiceName} (+${fmt(computeTtcCents(opt.priceHt, mi.vatRate))})`
+                  : `    > ${opt.choiceName}`;
+                doc.text(optLabel);
+              }
+            }
             doc.fontSize(7);
           }
-        }
+        } else {
+          const supplementsHt = (item.supplements ?? []).reduce(
+            (s, sup) => s + sup.priceHt * sup.qty,
+            0,
+          );
+          const optionsHt = (item.options ?? []).reduce(
+            (s, opt) => s + opt.priceHt,
+            0,
+          );
+          const lineHt = (item.priceHt + supplementsHt + optionsHt) * item.qty;
+          const lineTtc = computeTtcCents(lineHt, item.vatRate);
 
-        if (item.supplements && item.supplements.length > 0) {
-          for (const sup of item.supplements) {
-            const supTtc = computeTtcCents(sup.priceHt * sup.qty, item.vatRate);
-            const supLabel = sup.priceHt > 0
-              ? `  + ${sup.name}${sup.qty > 1 ? ` x${sup.qty}` : ''} (+${fmt(supTtc)})`
-              : `  + ${sup.name}${sup.qty > 1 ? ` x${sup.qty}` : ''}`;
-            doc.font(font).fontSize(6).text(supLabel);
-            doc.fontSize(7);
+          doc.font(fontBold).text(
+            `${item.qty}x ${item.name}`,
+            margin,
+            undefined,
+            { continued: true, width: contentWidth - 50 },
+          );
+          doc.font(font).text(fmt(lineTtc), { align: 'right' });
+
+          if (item.options && item.options.length > 0) {
+            for (const opt of item.options) {
+              const optLabel = opt.priceHt > 0
+                ? `  > ${opt.choiceName} (+${fmt(computeTtcCents(opt.priceHt, item.vatRate))})`
+                : `  > ${opt.choiceName}`;
+              doc.font(font).fontSize(6).text(optLabel);
+              doc.fontSize(7);
+            }
+          }
+
+          if (item.supplements && item.supplements.length > 0) {
+            for (const sup of item.supplements) {
+              const supTtc = computeTtcCents(sup.priceHt * sup.qty, item.vatRate);
+              const supLabel = sup.priceHt > 0
+                ? `  + ${sup.name}${sup.qty > 1 ? ` x${sup.qty}` : ''} (+${fmt(supTtc)})`
+                : `  + ${sup.name}${sup.qty > 1 ? ` x${sup.qty}` : ''}`;
+              doc.font(font).fontSize(6).text(supLabel);
+              doc.fontSize(7);
+            }
           }
         }
+        i++;
       }
 
       doc.moveDown(0.3);
@@ -257,25 +303,50 @@ export async function generateKitchenPdf(ticket: Ticket): Promise<Buffer> {
     // --- Articles ---
     const items = ticket.items as unknown as TicketItem[];
 
-    for (const item of items) {
-      doc.font(fontBold).fontSize(12).text(`${item.qty}x ${item.name}`);
+    let i = 0;
+    while (i < items.length) {
+      const item = items[i];
 
-      if (item.options && item.options.length > 0) {
-        for (const opt of item.options) {
-          doc.font(fontBold).fontSize(11).text(
-            `  > ${opt.choiceName.toUpperCase()}`,
-          );
+      if (item.menuName) {
+        // Group consecutive menu items
+        const menuItems: TicketItem[] = [item];
+        while (i + 1 < items.length && items[i + 1].menuName === item.menuName && items[i + 1].qty === item.qty) {
+          i++;
+          menuItems.push(items[i]);
         }
-      }
 
-      if (item.supplements && item.supplements.length > 0) {
-        for (const sup of item.supplements) {
-          doc.font(font).fontSize(10).text(
-            `  + ${sup.name}${sup.qty > 1 ? ` x${sup.qty}` : ''}`,
-          );
+        doc.font(fontBold).fontSize(12).text(`${item.qty}x ${item.menuName}`);
+        for (const mi of menuItems) {
+          doc.font(font).fontSize(10).text(`  - ${mi.name}`);
+          if (mi.options && mi.options.length > 0) {
+            for (const opt of mi.options) {
+              doc.font(fontBold).fontSize(10).text(
+                `    > ${opt.choiceName.toUpperCase()}`,
+              );
+            }
+          }
+        }
+      } else {
+        doc.font(fontBold).fontSize(12).text(`${item.qty}x ${item.name}`);
+
+        if (item.options && item.options.length > 0) {
+          for (const opt of item.options) {
+            doc.font(fontBold).fontSize(11).text(
+              `  > ${opt.choiceName.toUpperCase()}`,
+            );
+          }
+        }
+
+        if (item.supplements && item.supplements.length > 0) {
+          for (const sup of item.supplements) {
+            doc.font(font).fontSize(10).text(
+              `  + ${sup.name}${sup.qty > 1 ? ` x${sup.qty}` : ''}`,
+            );
+          }
         }
       }
       doc.moveDown(0.2);
+      i++;
     }
 
     // --- Heure ---
