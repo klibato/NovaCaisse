@@ -70,6 +70,7 @@ export interface MenuItem {
     name: string;
     priceHt: number;
     vatRate: number;
+    optionGroups?: OptionGroup[];
   };
   isChoice: boolean;
   choiceGroup: string | null;
@@ -113,6 +114,7 @@ export interface MenuCartDetail {
   name: string;
   priceHt: number;
   vatRate: number;
+  options?: CartItemOption[];
 }
 
 export interface CartItem {

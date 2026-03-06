@@ -72,7 +72,11 @@ export function Cart({ onEncaisser }: CartProps) {
             (s, opt) => s + opt.priceHt,
             0
           );
-          const lineHt = (item.priceHt + supplementsHt + optionsHt) * item.qty;
+          const menuItemOptionsHt = (item.menuItems ?? []).reduce(
+            (s, mi) => s + (mi.options ?? []).reduce((os, opt) => os + opt.priceHt, 0),
+            0
+          );
+          const lineHt = (item.priceHt + supplementsHt + optionsHt + menuItemOptionsHt) * item.qty;
           const lineTtc = computeTtc(lineHt, item.vatRate);
 
           return (
@@ -91,9 +95,20 @@ export function Cart({ onEncaisser }: CartProps) {
                   {item.isMenu && item.menuItems && item.menuItems.length > 0 && (
                     <div className="mt-1 ml-2 border-l-2 border-primary/20 pl-2">
                       {item.menuItems.map((mi, i) => (
-                        <p key={i} className="text-xs text-muted-foreground">
-                          {mi.name}
-                        </p>
+                        <div key={i}>
+                          <p className="text-xs text-muted-foreground">
+                            {mi.name}
+                          </p>
+                          {mi.options && mi.options.length > 0 && (
+                            <div className="ml-2">
+                              {mi.options.map((opt, oi) => (
+                                <p key={oi} className="text-xs text-muted-foreground/70">
+                                  {opt.groupName} : {opt.choiceName}{opt.priceHt > 0 ? ` (+${formatPrice(computeTtc(opt.priceHt, mi.vatRate))})` : ''}
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       ))}
                     </div>
                   )}

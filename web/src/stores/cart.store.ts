@@ -155,7 +155,12 @@ export const useCartStore = create<CartState>()((set, get) => ({
         (s, opt) => s + opt.priceHt,
         0
       );
-      return sum + (item.priceHt + supplementsHt + optionsHt) * item.qty;
+      // Menu sub-item options (paid options like Raclette +1€)
+      const menuItemOptionsHt = (item.menuItems ?? []).reduce(
+        (s, mi) => s + (mi.options ?? []).reduce((os, opt) => os + opt.priceHt, 0),
+        0
+      );
+      return sum + (item.priceHt + supplementsHt + optionsHt + menuItemOptionsHt) * item.qty;
     }, 0);
   },
 
@@ -172,7 +177,11 @@ export const useCartStore = create<CartState>()((set, get) => ({
         0
       );
       if (item.isMenu && item.menuItems && item.menuItems.length > 0) {
-        const prorated = prorateMenuHt(item.priceHt + supplementsHt + optionsHt, item.menuItems);
+        const menuItemOptionsHt = item.menuItems.reduce(
+          (s, mi) => s + (mi.options ?? []).reduce((os, opt) => os + opt.priceHt, 0),
+          0
+        );
+        const prorated = prorateMenuHt(item.priceHt + supplementsHt + optionsHt + menuItemOptionsHt, item.menuItems);
         for (const p of prorated) {
           total += computeTtc(p.baseHt * item.qty, p.rate);
         }
@@ -199,7 +208,11 @@ export const useCartStore = create<CartState>()((set, get) => ({
       );
 
       if (item.isMenu && item.menuItems && item.menuItems.length > 0) {
-        const prorated = prorateMenuHt(item.priceHt + supplementsHt + optionsHt, item.menuItems);
+        const menuItemOptionsHt = item.menuItems.reduce(
+          (s, mi) => s + (mi.options ?? []).reduce((os, opt) => os + opt.priceHt, 0),
+          0
+        );
+        const prorated = prorateMenuHt(item.priceHt + supplementsHt + optionsHt + menuItemOptionsHt, item.menuItems);
         for (const p of prorated) {
           const baseHt = p.baseHt * item.qty;
           const vatAmount = computeVatAmount(baseHt, p.rate);
