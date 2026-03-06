@@ -68,7 +68,11 @@ export function Cart({ onEncaisser }: CartProps) {
             (s, sup) => s + sup.priceHt * sup.qty,
             0
           );
-          const lineHt = (item.priceHt + supplementsHt) * item.qty;
+          const optionsHt = (item.options ?? []).reduce(
+            (s, opt) => s + opt.priceHt,
+            0
+          );
+          const lineHt = (item.priceHt + supplementsHt + optionsHt) * item.qty;
           const lineTtc = computeTtc(lineHt, item.vatRate);
 
           return (
@@ -89,6 +93,16 @@ export function Cart({ onEncaisser }: CartProps) {
                       {item.menuItems.map((mi, i) => (
                         <p key={i} className="text-xs text-muted-foreground">
                           {mi.name}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  {/* Options */}
+                  {item.options && item.options.length > 0 && (
+                    <div className="mt-0.5 ml-2">
+                      {item.options.map((opt, i) => (
+                        <p key={i} className="text-xs text-muted-foreground">
+                          {opt.groupName} : {opt.choiceName}{opt.priceHt > 0 ? ` (+${formatPrice(computeTtc(opt.priceHt, item.vatRate))})` : ''}
                         </p>
                       ))}
                     </div>

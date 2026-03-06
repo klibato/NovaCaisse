@@ -23,6 +23,25 @@ export interface Supplement {
   maxQty: number;
 }
 
+export interface OptionChoice {
+  id: string;
+  name: string;
+  priceHt: number;
+  position: number;
+  optionGroupId: string;
+}
+
+export interface OptionGroup {
+  id: string;
+  name: string;
+  required: boolean;
+  multiple: boolean;
+  maxChoices: number;
+  position: number;
+  productId: string;
+  choices: OptionChoice[];
+}
+
 export interface Product {
   id: string;
   tenantId: string;
@@ -32,6 +51,7 @@ export interface Product {
   categoryId: string | null;
   imageUrl: string | null;
   supplements: Supplement[] | null;
+  optionGroups?: OptionGroup[];
   active: boolean;
   createdAt: string;
   category?: {
@@ -83,6 +103,12 @@ export interface CartItemSupplement {
   qty: number;
 }
 
+export interface CartItemOption {
+  groupName: string;
+  choiceName: string;
+  priceHt: number;
+}
+
 export interface MenuCartDetail {
   name: string;
   priceHt: number;
@@ -97,6 +123,7 @@ export interface CartItem {
   priceHt: number;
   vatRate: number;
   supplements: CartItemSupplement[];
+  options?: CartItemOption[];
   isMenu?: boolean;
   menuId?: string;
   menuItems?: MenuCartDetail[];
@@ -123,6 +150,7 @@ export interface TicketResponse {
     priceHt: number;
     vatRate: number;
     supplements?: CartItemSupplement[];
+    options?: CartItemOption[];
   }[];
   totalHt: number;
   totalTtc: number;

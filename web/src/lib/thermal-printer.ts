@@ -52,12 +52,19 @@ function formatCents(cents: number): string {
   return (cents / 100).toFixed(2) + ' EUR';
 }
 
+interface TicketItemOption {
+  groupName: string;
+  choiceName: string;
+  priceHt: number;
+}
+
 interface TicketItem {
   name: string;
   qty: number;
   priceHt: number;
   vatRate: number;
   supplements?: { name: string; priceHt: number; qty: number }[];
+  options?: TicketItemOption[];
 }
 
 interface TicketData {
@@ -110,6 +117,16 @@ export function buildClientTicket(ticket: TicketData, shopName = 'NovaCaisse'): 
     for (const item of ticket.items) {
       const itemTtc = Math.round(item.priceHt * item.qty * (1 + item.vatRate / 100));
       line(padLine(`${item.qty}x ${item.name}`, formatCents(itemTtc)));
+      if (item.options) {
+        for (const opt of item.options) {
+          if (opt.priceHt > 0) {
+            const optTtc = Math.round(opt.priceHt * (1 + item.vatRate / 100));
+            line(padLine(`  > ${opt.choiceName}`, formatCents(optTtc)));
+          } else {
+            line(`  > ${opt.choiceName}`);
+          }
+        }
+      }
       if (item.supplements) {
         for (const sup of item.supplements) {
           const supTtc = Math.round(sup.priceHt * sup.qty * (1 + item.vatRate / 100));
@@ -175,6 +192,13 @@ export function buildKitchenTicket(
     line(`${item.qty}x ${item.name}`);
     parts.push(CMD.SIZE_NORMAL);
     parts.push(CMD.BOLD_OFF);
+    if (item.options) {
+      for (const opt of item.options) {
+        parts.push(CMD.SIZE_DOUBLE_HEIGHT);
+        line(`   > ${opt.choiceName.toUpperCase()}`);
+        parts.push(CMD.SIZE_NORMAL);
+      }
+    }
     if (item.supplements) {
       for (const sup of item.supplements) {
         line(`   + ${sup.name} x${sup.qty}`);
