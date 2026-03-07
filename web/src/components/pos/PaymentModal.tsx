@@ -123,9 +123,11 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
     const totals = new Map<PaymentMethod, number>();
     for (const item of items) {
       const method = itemPayments[item.id] || 'card';
-      const supplementsHt = item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0);
-      const itemHt = (item.priceHt + supplementsHt) * item.qty;
-      const itemTtc = Math.round(itemHt * (1 + item.vatRate / 100));
+      const supplementsTtc = Math.round(
+        item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0) * (1 + item.vatRate / 100)
+      );
+      const optionsTtc = (item.options ?? []).reduce((s, opt) => s + opt.priceTtc, 0);
+      const itemTtc = (item.priceTtc + supplementsTtc + optionsTtc) * item.qty;
       totals.set(method, (totals.get(method) ?? 0) + itemTtc);
     }
 
@@ -148,9 +150,11 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
     const totals = new Map<PaymentMethod, number>();
     for (const item of items) {
       const method = itemPayments[item.id] || 'card';
-      const supplementsHt = item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0);
-      const itemHt = (item.priceHt + supplementsHt) * item.qty;
-      const itemTtc = Math.round(itemHt * (1 + item.vatRate / 100));
+      const supplementsTtc = Math.round(
+        item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0) * (1 + item.vatRate / 100)
+      );
+      const optionsTtc = (item.options ?? []).reduce((s, opt) => s + opt.priceTtc, 0);
+      const itemTtc = (item.priceTtc + supplementsTtc + optionsTtc) * item.qty;
       totals.set(method, (totals.get(method) ?? 0) + itemTtc);
     }
     return totals;
@@ -161,7 +165,7 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
     setError('');
 
     try {
-      const ticketItems: { name: string; qty: number; priceHt: number; vatRate: number; supplements?: typeof items[0]['supplements'] }[] = [];
+      const ticketItems: { name: string; qty: number; priceHt: number; vatRate: number; supplements?: typeof items[0]['supplements']; options?: typeof items[0]['options']; menuName?: string }[] = [];
 
       for (const item of items) {
         if (item.isMenu && item.menuItems && item.menuItems.length > 0) {
@@ -180,10 +184,12 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
                 allocated += proratedHt;
               }
               ticketItems.push({
-                name: `${item.name} — ${mi.name}`,
+                name: mi.name,
+                menuName: item.name,
                 qty: item.qty,
                 priceHt: proratedHt,
                 vatRate: mi.vatRate,
+                options: mi.options && mi.options.length > 0 ? mi.options : undefined,
               });
             }
           } else {
@@ -201,6 +207,7 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
             priceHt: item.priceHt,
             vatRate: item.vatRate,
             supplements: item.supplements.length > 0 ? item.supplements : undefined,
+            options: item.options && item.options.length > 0 ? item.options : undefined,
           });
         }
       }
@@ -457,7 +464,7 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
                         <p className="truncate text-sm font-medium">{item.name}</p>
                         <p className="text-xs text-muted-foreground">
                           x{item.qty} — {formatPrice(
-                            Math.round((item.priceHt + item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0)) * item.qty * (1 + item.vatRate / 100))
+                            (item.priceTtc + Math.round(item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0) * (1 + item.vatRate / 100)) + (item.options ?? []).reduce((s, opt) => s + opt.priceTtc, 0)) * item.qty
                           )}
                         </p>
                       </div>

@@ -52,12 +52,20 @@ function formatCents(cents: number): string {
   return (cents / 100).toFixed(2) + ' EUR';
 }
 
+interface TicketItemOption {
+  groupName: string;
+  choiceName: string;
+  priceHt: number;
+}
+
 interface TicketItem {
   name: string;
   qty: number;
   priceHt: number;
   vatRate: number;
   supplements?: { name: string; priceHt: number; qty: number }[];
+  options?: TicketItemOption[];
+  menuName?: string;
 }
 
 interface TicketData {
@@ -107,15 +115,60 @@ export function buildClientTicket(ticket: TicketData, shopName = 'NovaCaisse'): 
 
   // Items (skip detail if expense note)
   if (!ticket.isExpenseNote) {
-    for (const item of ticket.items) {
-      const itemTtc = Math.round(item.priceHt * item.qty * (1 + item.vatRate / 100));
-      line(padLine(`${item.qty}x ${item.name}`, formatCents(itemTtc)));
-      if (item.supplements) {
-        for (const sup of item.supplements) {
-          const supTtc = Math.round(sup.priceHt * sup.qty * (1 + item.vatRate / 100));
-          line(padLine(`  + ${sup.name} x${sup.qty}`, formatCents(supTtc)));
+    let i = 0;
+    while (i < ticket.items.length) {
+      const item = ticket.items[i];
+
+      if (item.menuName) {
+        // Group consecutive menu items
+        const menuItems: TicketItem[] = [item];
+        while (i + 1 < ticket.items.length && ticket.items[i + 1].menuName === item.menuName && ticket.items[i + 1].qty === item.qty) {
+          i++;
+          menuItems.push(ticket.items[i]);
+        }
+
+        // Total TTC for menu group (per-item vatRate)
+        let menuTtc = 0;
+        for (const mi of menuItems) {
+          const optHt = (mi.options ?? []).reduce((s, o) => s + o.priceHt, 0);
+          menuTtc += Math.round((mi.priceHt + optHt) * mi.qty * (1 + mi.vatRate / 100));
+        }
+
+        line(padLine(`${item.qty}x ${item.menuName}`, formatCents(menuTtc)));
+        for (const mi of menuItems) {
+          line(`  - ${mi.name}`);
+          if (mi.options) {
+            for (const opt of mi.options) {
+              if (opt.priceHt > 0) {
+                const optTtc = Math.round(opt.priceHt * (1 + mi.vatRate / 100));
+                line(padLine(`    > ${opt.choiceName}`, formatCents(optTtc)));
+              } else {
+                line(`    > ${opt.choiceName}`);
+              }
+            }
+          }
+        }
+      } else {
+        const itemTtc = Math.round(item.priceHt * item.qty * (1 + item.vatRate / 100));
+        line(padLine(`${item.qty}x ${item.name}`, formatCents(itemTtc)));
+        if (item.options) {
+          for (const opt of item.options) {
+            if (opt.priceHt > 0) {
+              const optTtc = Math.round(opt.priceHt * (1 + item.vatRate / 100));
+              line(padLine(`  > ${opt.choiceName}`, formatCents(optTtc)));
+            } else {
+              line(`  > ${opt.choiceName}`);
+            }
+          }
+        }
+        if (item.supplements) {
+          for (const sup of item.supplements) {
+            const supTtc = Math.round(sup.priceHt * sup.qty * (1 + item.vatRate / 100));
+            line(padLine(`  + ${sup.name} x${sup.qty}`, formatCents(supTtc)));
+          }
         }
       }
+      i++;
     }
     line(separator());
   }
@@ -169,17 +222,53 @@ export function buildKitchenTicket(
   line(separator('='));
 
   // Items — big, no prices
-  for (const item of ticket.items) {
-    parts.push(CMD.SIZE_DOUBLE_HEIGHT);
-    parts.push(CMD.BOLD_ON);
-    line(`${item.qty}x ${item.name}`);
-    parts.push(CMD.SIZE_NORMAL);
-    parts.push(CMD.BOLD_OFF);
-    if (item.supplements) {
-      for (const sup of item.supplements) {
-        line(`   + ${sup.name} x${sup.qty}`);
+  let idx = 0;
+  while (idx < ticket.items.length) {
+    const item = ticket.items[idx];
+
+    if (item.menuName) {
+      // Group consecutive menu items
+      const menuItems: TicketItem[] = [item];
+      while (idx + 1 < ticket.items.length && ticket.items[idx + 1].menuName === item.menuName && ticket.items[idx + 1].qty === item.qty) {
+        idx++;
+        menuItems.push(ticket.items[idx]);
+      }
+
+      parts.push(CMD.SIZE_DOUBLE_HEIGHT);
+      parts.push(CMD.BOLD_ON);
+      line(`${item.qty}x ${item.menuName}`);
+      parts.push(CMD.SIZE_NORMAL);
+      parts.push(CMD.BOLD_OFF);
+      for (const mi of menuItems) {
+        line(`  - ${mi.name}`);
+        if (mi.options) {
+          for (const opt of mi.options) {
+            parts.push(CMD.SIZE_DOUBLE_HEIGHT);
+            line(`    > ${opt.choiceName.toUpperCase()}`);
+            parts.push(CMD.SIZE_NORMAL);
+          }
+        }
+      }
+    } else {
+      parts.push(CMD.SIZE_DOUBLE_HEIGHT);
+      parts.push(CMD.BOLD_ON);
+      line(`${item.qty}x ${item.name}`);
+      parts.push(CMD.SIZE_NORMAL);
+      parts.push(CMD.BOLD_OFF);
+      if (item.options) {
+        for (const opt of item.options) {
+          parts.push(CMD.SIZE_DOUBLE_HEIGHT);
+          line(`   > ${opt.choiceName.toUpperCase()}`);
+          parts.push(CMD.SIZE_NORMAL);
+        }
+      }
+      if (item.supplements) {
+        for (const sup of item.supplements) {
+          line(`   + ${sup.name} x${sup.qty}`);
+        }
       }
     }
+    idx++;
   }
 
   line(separator('='));

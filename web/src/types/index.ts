@@ -23,15 +23,37 @@ export interface Supplement {
   maxQty: number;
 }
 
+export interface OptionChoice {
+  id: string;
+  name: string;
+  priceHt: number;
+  priceTtc: number;
+  position: number;
+  optionGroupId: string;
+}
+
+export interface OptionGroup {
+  id: string;
+  name: string;
+  required: boolean;
+  multiple: boolean;
+  maxChoices: number;
+  position: number;
+  productId: string;
+  choices: OptionChoice[];
+}
+
 export interface Product {
   id: string;
   tenantId: string;
   name: string;
   priceHt: number;
+  priceTtc: number;
   vatRate: number;
   categoryId: string | null;
   imageUrl: string | null;
   supplements: Supplement[] | null;
+  optionGroups?: OptionGroup[];
   active: boolean;
   createdAt: string;
   category?: {
@@ -49,7 +71,9 @@ export interface MenuItem {
     id: string;
     name: string;
     priceHt: number;
+    priceTtc: number;
     vatRate: number;
+    optionGroups?: OptionGroup[];
   };
   isChoice: boolean;
   choiceGroup: string | null;
@@ -61,6 +85,7 @@ export interface Menu {
   tenantId: string;
   name: string;
   priceHt: number;
+  priceTtc: number;
   vatRate: number;
   categoryId: string | null;
   imageUrl: string | null;
@@ -83,10 +108,19 @@ export interface CartItemSupplement {
   qty: number;
 }
 
+export interface CartItemOption {
+  groupName: string;
+  choiceName: string;
+  priceHt: number;
+  priceTtc: number;
+}
+
 export interface MenuCartDetail {
   name: string;
   priceHt: number;
+  priceTtc: number;
   vatRate: number;
+  options?: CartItemOption[];
 }
 
 export interface CartItem {
@@ -95,8 +129,10 @@ export interface CartItem {
   name: string;
   qty: number;
   priceHt: number;
+  priceTtc: number;
   vatRate: number;
   supplements: CartItemSupplement[];
+  options?: CartItemOption[];
   isMenu?: boolean;
   menuId?: string;
   menuItems?: MenuCartDetail[];
@@ -123,6 +159,8 @@ export interface TicketResponse {
     priceHt: number;
     vatRate: number;
     supplements?: CartItemSupplement[];
+    options?: CartItemOption[];
+    menuName?: string;
   }[];
   totalHt: number;
   totalTtc: number;

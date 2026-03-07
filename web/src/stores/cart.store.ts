@@ -1,12 +1,13 @@
 import { create } from 'zustand';
-import type { CartItem, CartItemSupplement, Menu, MenuCartDetail, Product, ServiceMode, VatDetail } from '@/types';
-import { computeTtc, computeVatAmount } from '@/lib/utils';
+import type { CartItem, CartItemSupplement, CartItemOption, Menu, MenuCartDetail, Product, ServiceMode, VatDetail } from '@/types';
+import { ttcToHt } from '@/lib/utils';
 
 interface CartState {
   items: CartItem[];
   serviceMode: ServiceMode;
   addItem: (product: Product) => void;
   addItemWithSupplements: (product: Product, supplements: CartItemSupplement[]) => void;
+  addItemWithOptions: (product: Product, supplements: CartItemSupplement[], options: CartItemOption[]) => void;
   addMenu: (menu: Menu, selectedItems: MenuCartDetail[]) => void;
   removeItem: (id: string) => void;
   updateQty: (id: string, qty: number) => void;
@@ -47,6 +48,7 @@ export const useCartStore = create<CartState>()((set, get) => ({
         name: product.name,
         qty: 1,
         priceHt: product.priceHt,
+        priceTtc: product.priceTtc,
         vatRate,
         supplements: [],
       };
@@ -64,8 +66,27 @@ export const useCartStore = create<CartState>()((set, get) => ({
         name: product.name,
         qty: 1,
         priceHt: product.priceHt,
+        priceTtc: product.priceTtc,
         vatRate,
         supplements,
+      };
+      return { items: [...state.items, newItem] };
+    });
+  },
+
+  addItemWithOptions: (product: Product, supplements: CartItemSupplement[], options: CartItemOption[]) => {
+    set((state) => {
+      const vatRate = Number(product.vatRate);
+      const newItem: CartItem = {
+        id: `cart-${nextId++}`,
+        productId: product.id,
+        name: product.name,
+        qty: 1,
+        priceHt: product.priceHt,
+        priceTtc: product.priceTtc,
+        vatRate,
+        supplements,
+        options,
       };
       return { items: [...state.items, newItem] };
     });
@@ -79,6 +100,7 @@ export const useCartStore = create<CartState>()((set, get) => ({
         name: menu.name,
         qty: 1,
         priceHt: menu.priceHt,
+        priceTtc: menu.priceTtc,
         vatRate: Number(menu.vatRate),
         supplements: [],
         isMenu: true,
@@ -133,7 +155,15 @@ export const useCartStore = create<CartState>()((set, get) => ({
         (s, sup) => s + sup.priceHt * sup.qty,
         0
       );
-      return sum + (item.priceHt + supplementsHt) * item.qty;
+      const optionsHt = (item.options ?? []).reduce(
+        (s, opt) => s + opt.priceHt,
+        0
+      );
+      const menuItemOptionsHt = (item.menuItems ?? []).reduce(
+        (s, mi) => s + (mi.options ?? []).reduce((os, opt) => os + opt.priceHt, 0),
+        0
+      );
+      return sum + (item.priceHt + supplementsHt + optionsHt + menuItemOptionsHt) * item.qty;
     }, 0);
   },
 
@@ -141,19 +171,22 @@ export const useCartStore = create<CartState>()((set, get) => ({
     const { items } = get();
     let total = 0;
     for (const item of items) {
-      const supplementsHt = item.supplements.reduce(
-        (s, sup) => s + sup.priceHt * sup.qty,
+      // Supplements and options TTC
+      const supplementsTtc = item.supplements.reduce(
+        (s, sup) => s + sup.priceHt * sup.qty, // supplements still stored as HT in JSON — compute TTC
         0
       );
-      if (item.isMenu && item.menuItems && item.menuItems.length > 0) {
-        const prorated = prorateMenuHt(item.priceHt + supplementsHt, item.menuItems);
-        for (const p of prorated) {
-          total += computeTtc(p.baseHt * item.qty, p.rate);
-        }
-      } else {
-        const itemHt = (item.priceHt + supplementsHt) * item.qty;
-        total += computeTtc(itemHt, item.vatRate);
-      }
+      const supplementsTtcComputed = Math.round(supplementsTtc * (1 + item.vatRate / 100));
+      const optionsTtc = (item.options ?? []).reduce(
+        (s, opt) => s + opt.priceTtc,
+        0
+      );
+      const menuItemOptionsTtc = (item.menuItems ?? []).reduce(
+        (s, mi) => s + (mi.options ?? []).reduce((os, opt) => os + opt.priceTtc, 0),
+        0
+      );
+
+      total += (item.priceTtc + supplementsTtcComputed + optionsTtc + menuItemOptionsTtc) * item.qty;
     }
     return total;
   },
@@ -167,12 +200,20 @@ export const useCartStore = create<CartState>()((set, get) => ({
         (s, sup) => s + sup.priceHt * sup.qty,
         0
       );
+      const optionsHt = (item.options ?? []).reduce(
+        (s, opt) => s + opt.priceHt,
+        0
+      );
 
       if (item.isMenu && item.menuItems && item.menuItems.length > 0) {
-        const prorated = prorateMenuHt(item.priceHt + supplementsHt, item.menuItems);
+        const menuItemOptionsHt = item.menuItems.reduce(
+          (s, mi) => s + (mi.options ?? []).reduce((os, opt) => os + opt.priceHt, 0),
+          0
+        );
+        const prorated = prorateMenuHt(item.priceHt + supplementsHt + optionsHt + menuItemOptionsHt, item.menuItems);
         for (const p of prorated) {
           const baseHt = p.baseHt * item.qty;
-          const vatAmount = computeVatAmount(baseHt, p.rate);
+          const vatAmount = Math.round(baseHt * p.rate / 100);
           const existing = vatMap.get(p.rate);
           if (existing) {
             existing.baseHt += baseHt;
@@ -182,8 +223,8 @@ export const useCartStore = create<CartState>()((set, get) => ({
           }
         }
       } else {
-        const itemHt = (item.priceHt + supplementsHt) * item.qty;
-        const vatAmount = computeVatAmount(itemHt, item.vatRate);
+        const itemHt = (item.priceHt + supplementsHt + optionsHt) * item.qty;
+        const vatAmount = Math.round(itemHt * item.vatRate / 100);
         const existing = vatMap.get(item.vatRate);
         if (existing) {
           existing.baseHt += itemHt;
@@ -206,7 +247,7 @@ export const useCartStore = create<CartState>()((set, get) => ({
  * Prorate a menu's HT price across its component items based on their
  * original HT price weights, grouped by vatRate.
  */
-function prorateMenuHt(
+export function prorateMenuHt(
   menuPriceHt: number,
   menuItems: MenuCartDetail[]
 ): { rate: number; baseHt: number }[] {
