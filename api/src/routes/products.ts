@@ -1,13 +1,14 @@
 import type { FastifyInstance } from 'fastify';
 import { rbac } from '../hooks/rbac.hook.js';
+import { ttcToHt } from '../lib/utils.js';
 
 const productSchema = {
   body: {
     type: 'object' as const,
-    required: ['name', 'priceHt'],
+    required: ['name', 'priceTtc'],
     properties: {
       name: { type: 'string' as const, minLength: 1 },
-      priceHt: { type: 'integer' as const, minimum: 0 },
+      priceTtc: { type: 'integer' as const, minimum: 0 },
       vatRate: { type: 'number' as const, default: 10.0 },
       categoryId: { type: 'string' as const, nullable: true },
       imageUrl: { type: 'string' as const, nullable: true },
@@ -16,10 +17,10 @@ const productSchema = {
         nullable: true,
         items: {
           type: 'object' as const,
-          required: ['name', 'priceHt', 'maxQty'],
+          required: ['name', 'priceTtc', 'maxQty'],
           properties: {
             name: { type: 'string' as const },
-            priceHt: { type: 'integer' as const, minimum: 0 },
+            priceTtc: { type: 'integer' as const, minimum: 0 },
             maxQty: { type: 'integer' as const, minimum: 1 },
           },
         },
@@ -43,7 +44,7 @@ const productSchema = {
                 required: ['name'],
                 properties: {
                   name: { type: 'string' as const },
-                  priceHt: { type: 'integer' as const, minimum: 0 },
+                  priceTtc: { type: 'integer' as const, minimum: 0 },
                   position: { type: 'integer' as const },
                 },
               },
@@ -57,7 +58,7 @@ const productSchema = {
 
 interface OptionChoiceInput {
   name: string;
-  priceHt?: number;
+  priceTtc?: number;
   position?: number;
 }
 
@@ -127,23 +128,37 @@ export default async function productRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const body = request.body as {
         name: string;
-        priceHt: number;
+        priceTtc: number;
         vatRate?: number;
         categoryId?: string | null;
         imageUrl?: string | null;
-        supplements?: { name: string; priceHt: number; maxQty: number }[] | null;
+        supplements?: { name: string; priceTtc: number; maxQty: number }[] | null;
         optionGroups?: OptionGroupInput[] | null;
       };
+
+      const vatRate = body.vatRate ?? 10.0;
+      const priceHt = ttcToHt(body.priceTtc, vatRate);
+
+      // Convert supplement priceTtc to priceHt for storage
+      const supplementsData = body.supplements
+        ? body.supplements.map((s) => ({
+            name: s.name,
+            priceHt: ttcToHt(s.priceTtc, vatRate),
+            priceTtc: s.priceTtc,
+            maxQty: s.maxQty,
+          }))
+        : undefined;
 
       const product = await fastify.prisma.product.create({
         data: {
           tenantId: request.user.tenantId,
           name: body.name,
-          priceHt: body.priceHt,
-          vatRate: body.vatRate ?? 10.0,
+          priceHt,
+          priceTtc: body.priceTtc,
+          vatRate,
           categoryId: body.categoryId ?? null,
           imageUrl: body.imageUrl ?? null,
-          supplements: body.supplements ?? undefined,
+          supplements: supplementsData ?? undefined,
           optionGroups: body.optionGroups
             ? {
                 create: body.optionGroups.map((g, gi) => ({
@@ -156,7 +171,8 @@ export default async function productRoutes(fastify: FastifyInstance) {
                   choices: {
                     create: (g.choices ?? []).map((c, ci) => ({
                       name: c.name,
-                      priceHt: c.priceHt ?? 0,
+                      priceTtc: c.priceTtc ?? 0,
+                      priceHt: ttcToHt(c.priceTtc ?? 0, vatRate),
                       position: c.position ?? ci,
                     })),
                   },
@@ -188,11 +204,11 @@ export default async function productRoutes(fastify: FastifyInstance) {
       const { id } = request.params as { id: string };
       const body = request.body as {
         name?: string;
-        priceHt?: number;
+        priceTtc?: number;
         vatRate?: number;
         categoryId?: string | null;
         imageUrl?: string | null;
-        supplements?: { name: string; priceHt: number; maxQty: number }[] | null;
+        supplements?: { name: string; priceTtc: number; maxQty: number }[] | null;
         optionGroups?: OptionGroupInput[] | null;
       };
 
@@ -203,6 +219,8 @@ export default async function productRoutes(fastify: FastifyInstance) {
       if (!existing) {
         return reply.status(404).send({ error: 'Produit non trouvé', code: 'NOT_FOUND' });
       }
+
+      const vatRate = body.vatRate ?? Number(existing.vatRate);
 
       // If optionGroups provided, replace all (delete old, create new)
       if (body.optionGroups !== undefined) {
@@ -225,7 +243,8 @@ export default async function productRoutes(fastify: FastifyInstance) {
                 choices: {
                   create: (g.choices ?? []).map((c, ci) => ({
                     name: c.name,
-                    priceHt: c.priceHt ?? 0,
+                    priceTtc: c.priceTtc ?? 0,
+                    priceHt: ttcToHt(c.priceTtc ?? 0, vatRate),
                     position: c.position ?? ci,
                   })),
                 },
@@ -235,15 +254,25 @@ export default async function productRoutes(fastify: FastifyInstance) {
         }
       }
 
+      // Convert supplement priceTtc to priceHt
+      const supplementsData = body.supplements
+        ? body.supplements.map((s) => ({
+            name: s.name,
+            priceHt: ttcToHt(s.priceTtc, vatRate),
+            priceTtc: s.priceTtc,
+            maxQty: s.maxQty,
+          }))
+        : undefined;
+
       const product = await fastify.prisma.product.update({
         where: { id },
         data: {
           ...(body.name !== undefined && { name: body.name }),
-          ...(body.priceHt !== undefined && { priceHt: body.priceHt }),
+          ...(body.priceTtc !== undefined && { priceTtc: body.priceTtc, priceHt: ttcToHt(body.priceTtc, vatRate) }),
           ...(body.vatRate !== undefined && { vatRate: body.vatRate }),
           ...(body.categoryId !== undefined && { categoryId: body.categoryId }),
           ...(body.imageUrl !== undefined && { imageUrl: body.imageUrl }),
-          ...(body.supplements !== undefined && { supplements: body.supplements ?? undefined }),
+          ...(body.supplements !== undefined && { supplements: supplementsData ?? undefined }),
         },
         include: PRODUCT_INCLUDE,
       });

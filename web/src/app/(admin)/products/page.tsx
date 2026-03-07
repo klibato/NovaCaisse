@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { formatPrice, eurosToCents, centsToEuros, computeTtc, ttcToHt } from '@/lib/utils';
+import { formatPrice, eurosToCents, centsToEuros, ttcToHt } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -104,7 +104,7 @@ export default function ProductsPage() {
 
     const supplements: SupplementForm[] = (product.supplements ?? []).map((s) => ({
       name: s.name,
-      priceTtc: centsToEuros(computeTtc(s.priceHt, vatRate)),
+      priceTtc: centsToEuros((s as { priceTtc?: number }).priceTtc ?? Math.round(s.priceHt * (1 + vatRate / 100))),
       maxQty: String(s.maxQty),
     }));
 
@@ -115,13 +115,13 @@ export default function ProductsPage() {
       maxChoices: String(g.maxChoices),
       choices: g.choices.map((c) => ({
         name: c.name,
-        priceTtc: centsToEuros(computeTtc(c.priceHt, vatRate)),
+        priceTtc: centsToEuros(c.priceTtc),
       })),
     }));
 
     setForm({
       name: product.name,
-      priceTtc: centsToEuros(computeTtc(product.priceHt, vatRate)),
+      priceTtc: centsToEuros(product.priceTtc),
       categoryId: product.categoryId || '',
       vatRate: String(vatRate),
       supplements,
@@ -223,16 +223,15 @@ export default function ProductsPage() {
     try {
       const vatRate = parseFloat(form.vatRate);
 
-      const supplements: Supplement[] | null =
-        form.supplements.length > 0
-          ? form.supplements
-              .filter((s) => s.name.trim() !== '')
-              .map((s) => ({
-                name: s.name.trim(),
-                priceHt: ttcToHt(eurosToCents(parseFloat(s.priceTtc) || 0), vatRate),
-                maxQty: Math.max(1, parseInt(s.maxQty, 10) || 1),
-              }))
-          : null;
+      const supplements = form.supplements.length > 0
+        ? form.supplements
+            .filter((s) => s.name.trim() !== '')
+            .map((s) => ({
+              name: s.name.trim(),
+              priceTtc: eurosToCents(parseFloat(s.priceTtc) || 0),
+              maxQty: Math.max(1, parseInt(s.maxQty, 10) || 1),
+            }))
+        : null;
 
       const optionGroups = form.optionGroups.length > 0
         ? form.optionGroups
@@ -247,7 +246,7 @@ export default function ProductsPage() {
                 .filter((c) => c.name.trim() !== '')
                 .map((c, ci) => ({
                   name: c.name.trim(),
-                  priceHt: ttcToHt(eurosToCents(parseFloat(c.priceTtc) || 0), vatRate),
+                  priceTtc: eurosToCents(parseFloat(c.priceTtc) || 0),
                   position: ci,
                 })),
             }))
@@ -255,7 +254,7 @@ export default function ProductsPage() {
 
       const body = {
         name: form.name,
-        priceHt: ttcToHt(eurosToCents(parseFloat(form.priceTtc)), vatRate),
+        priceTtc: eurosToCents(parseFloat(form.priceTtc)),
         categoryId: form.categoryId || null,
         vatRate,
         supplements,
@@ -357,7 +356,7 @@ export default function ProductsPage() {
                   )}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {formatPrice(computeTtc(product.priceHt, Number(product.vatRate)))}
+                  {formatPrice(product.priceTtc)}
                 </td>
                 <td className="px-4 py-3 text-center text-sm text-muted-foreground">
                   {Number(product.vatRate)}%

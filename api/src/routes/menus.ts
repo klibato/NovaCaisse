@@ -1,13 +1,14 @@
 import type { FastifyInstance } from 'fastify';
 import { rbac } from '../hooks/rbac.hook.js';
+import { ttcToHt } from '../lib/utils.js';
 
 const menuSchema = {
   body: {
     type: 'object' as const,
-    required: ['name', 'priceHt'],
+    required: ['name', 'priceTtc'],
     properties: {
       name: { type: 'string' as const, minLength: 1 },
-      priceHt: { type: 'integer' as const, minimum: 0 },
+      priceTtc: { type: 'integer' as const, minimum: 0 },
       vatRate: { type: 'number' as const, default: 10.0 },
       categoryId: { type: 'string' as const, nullable: true },
       imageUrl: { type: 'string' as const, nullable: true },
@@ -47,7 +48,7 @@ export default async function menuRoutes(fastify: FastifyInstance) {
         items: {
           include: { product: {
               select: {
-                id: true, name: true, priceHt: true, vatRate: true,
+                id: true, name: true, priceHt: true, priceTtc: true, vatRate: true,
                 optionGroups: {
                   orderBy: { position: 'asc' as const },
                   include: { choices: { orderBy: { position: 'asc' as const } } },
@@ -93,7 +94,7 @@ export default async function menuRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const body = request.body as {
         name: string;
-        priceHt: number;
+        priceTtc: number;
         vatRate?: number;
         categoryId?: string | null;
         imageUrl?: string | null;
@@ -105,12 +106,16 @@ export default async function menuRoutes(fastify: FastifyInstance) {
         }[];
       };
 
+      const vatRate = body.vatRate ?? 10.0;
+      const priceHt = ttcToHt(body.priceTtc, vatRate);
+
       const menu = await fastify.prisma.menu.create({
         data: {
           tenantId: request.user.tenantId,
           name: body.name,
-          priceHt: body.priceHt,
-          vatRate: body.vatRate ?? 10.0,
+          priceHt,
+          priceTtc: body.priceTtc,
+          vatRate,
           categoryId: body.categoryId ?? null,
           imageUrl: body.imageUrl ?? null,
           items: body.items
@@ -128,7 +133,7 @@ export default async function menuRoutes(fastify: FastifyInstance) {
           items: {
             include: { product: {
               select: {
-                id: true, name: true, priceHt: true, vatRate: true,
+                id: true, name: true, priceHt: true, priceTtc: true, vatRate: true,
                 optionGroups: {
                   orderBy: { position: 'asc' as const },
                   include: { choices: { orderBy: { position: 'asc' as const } } },
@@ -153,7 +158,7 @@ export default async function menuRoutes(fastify: FastifyInstance) {
       const { id } = request.params as { id: string };
       const body = request.body as {
         name?: string;
-        priceHt?: number;
+        priceTtc?: number;
         vatRate?: number;
         categoryId?: string | null;
         imageUrl?: string | null;
@@ -173,8 +178,15 @@ export default async function menuRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: 'Menu non trouvé', code: 'NOT_FOUND' });
       }
 
+      const vatRate = body.vatRate ?? Number(existing.vatRate);
+
       // Si items fournis, on supprime les anciens et recrée
-      const { items, ...menuData } = body;
+      const { items, priceTtc, ...restData } = body;
+      const menuData: Record<string, unknown> = { ...restData };
+      if (priceTtc !== undefined) {
+        menuData.priceTtc = priceTtc;
+        menuData.priceHt = ttcToHt(priceTtc, vatRate);
+      }
 
       const menu = await fastify.prisma.$transaction(async (tx) => {
         if (items) {
@@ -197,7 +209,7 @@ export default async function menuRoutes(fastify: FastifyInstance) {
             items: {
               include: { product: {
               select: {
-                id: true, name: true, priceHt: true, vatRate: true,
+                id: true, name: true, priceHt: true, priceTtc: true, vatRate: true,
                 optionGroups: {
                   orderBy: { position: 'asc' as const },
                   include: { choices: { orderBy: { position: 'asc' as const } } },
@@ -258,7 +270,7 @@ export default async function menuRoutes(fastify: FastifyInstance) {
           items: {
             include: { product: {
               select: {
-                id: true, name: true, priceHt: true, vatRate: true,
+                id: true, name: true, priceHt: true, priceTtc: true, vatRate: true,
                 optionGroups: {
                   orderBy: { position: 'asc' as const },
                   include: { choices: { orderBy: { position: 'asc' as const } } },

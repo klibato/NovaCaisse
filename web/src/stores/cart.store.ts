@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { CartItem, CartItemSupplement, CartItemOption, Menu, MenuCartDetail, Product, ServiceMode, VatDetail } from '@/types';
-import { computeTtc, computeVatAmount } from '@/lib/utils';
+import { ttcToHt } from '@/lib/utils';
 
 interface CartState {
   items: CartItem[];
@@ -48,6 +48,7 @@ export const useCartStore = create<CartState>()((set, get) => ({
         name: product.name,
         qty: 1,
         priceHt: product.priceHt,
+        priceTtc: product.priceTtc,
         vatRate,
         supplements: [],
       };
@@ -65,6 +66,7 @@ export const useCartStore = create<CartState>()((set, get) => ({
         name: product.name,
         qty: 1,
         priceHt: product.priceHt,
+        priceTtc: product.priceTtc,
         vatRate,
         supplements,
       };
@@ -81,6 +83,7 @@ export const useCartStore = create<CartState>()((set, get) => ({
         name: product.name,
         qty: 1,
         priceHt: product.priceHt,
+        priceTtc: product.priceTtc,
         vatRate,
         supplements,
         options,
@@ -97,6 +100,7 @@ export const useCartStore = create<CartState>()((set, get) => ({
         name: menu.name,
         qty: 1,
         priceHt: menu.priceHt,
+        priceTtc: menu.priceTtc,
         vatRate: Number(menu.vatRate),
         supplements: [],
         isMenu: true,
@@ -155,7 +159,6 @@ export const useCartStore = create<CartState>()((set, get) => ({
         (s, opt) => s + opt.priceHt,
         0
       );
-      // Menu sub-item options (paid options like Raclette +1€)
       const menuItemOptionsHt = (item.menuItems ?? []).reduce(
         (s, mi) => s + (mi.options ?? []).reduce((os, opt) => os + opt.priceHt, 0),
         0
@@ -168,27 +171,22 @@ export const useCartStore = create<CartState>()((set, get) => ({
     const { items } = get();
     let total = 0;
     for (const item of items) {
-      const supplementsHt = item.supplements.reduce(
-        (s, sup) => s + sup.priceHt * sup.qty,
+      // Supplements and options TTC
+      const supplementsTtc = item.supplements.reduce(
+        (s, sup) => s + sup.priceHt * sup.qty, // supplements still stored as HT in JSON — compute TTC
         0
       );
-      const optionsHt = (item.options ?? []).reduce(
-        (s, opt) => s + opt.priceHt,
+      const supplementsTtcComputed = Math.round(supplementsTtc * (1 + item.vatRate / 100));
+      const optionsTtc = (item.options ?? []).reduce(
+        (s, opt) => s + opt.priceTtc,
         0
       );
-      if (item.isMenu && item.menuItems && item.menuItems.length > 0) {
-        const menuItemOptionsHt = item.menuItems.reduce(
-          (s, mi) => s + (mi.options ?? []).reduce((os, opt) => os + opt.priceHt, 0),
-          0
-        );
-        const prorated = prorateMenuHt(item.priceHt + supplementsHt + optionsHt + menuItemOptionsHt, item.menuItems);
-        for (const p of prorated) {
-          total += computeTtc(p.baseHt * item.qty, p.rate);
-        }
-      } else {
-        const itemHt = (item.priceHt + supplementsHt + optionsHt) * item.qty;
-        total += computeTtc(itemHt, item.vatRate);
-      }
+      const menuItemOptionsTtc = (item.menuItems ?? []).reduce(
+        (s, mi) => s + (mi.options ?? []).reduce((os, opt) => os + opt.priceTtc, 0),
+        0
+      );
+
+      total += (item.priceTtc + supplementsTtcComputed + optionsTtc + menuItemOptionsTtc) * item.qty;
     }
     return total;
   },
@@ -215,7 +213,7 @@ export const useCartStore = create<CartState>()((set, get) => ({
         const prorated = prorateMenuHt(item.priceHt + supplementsHt + optionsHt + menuItemOptionsHt, item.menuItems);
         for (const p of prorated) {
           const baseHt = p.baseHt * item.qty;
-          const vatAmount = computeVatAmount(baseHt, p.rate);
+          const vatAmount = Math.round(baseHt * p.rate / 100);
           const existing = vatMap.get(p.rate);
           if (existing) {
             existing.baseHt += baseHt;
@@ -226,7 +224,7 @@ export const useCartStore = create<CartState>()((set, get) => ({
         }
       } else {
         const itemHt = (item.priceHt + supplementsHt + optionsHt) * item.qty;
-        const vatAmount = computeVatAmount(itemHt, item.vatRate);
+        const vatAmount = Math.round(itemHt * item.vatRate / 100);
         const existing = vatMap.get(item.vatRate);
         if (existing) {
           existing.baseHt += itemHt;
