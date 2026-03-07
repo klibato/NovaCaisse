@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { formatPrice, eurosToCents, centsToEuros } from '@/lib/utils';
+import { formatPrice, eurosToCents, centsToEuros, computeTtc, ttcToHt } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,15 +30,40 @@ interface MenuItemForm {
 
 interface MenuForm {
   name: string;
-  priceHt: string;
+  priceTtc: string;
   items: MenuItemForm[];
 }
 
 const EMPTY_FORM: MenuForm = {
   name: '',
-  priceHt: '',
+  priceTtc: '',
   items: [],
 };
+
+/**
+ * Compute the HT price for a menu given a TTC price and sub-item composition.
+ * Uses prorated TVA ventilation across different vatRates.
+ */
+function computeMenuHtFromTtc(ttcCents: number, items: MenuItemForm[]): number {
+  const totalItemsHt = items.reduce((s, mi) => s + mi.priceHt, 0);
+  if (totalItemsHt === 0 || items.length === 0) {
+    return ttcToHt(ttcCents, 10);
+  }
+  // Group by vatRate and compute weight
+  const groups = new Map<number, number>();
+  for (const mi of items) {
+    groups.set(mi.vatRate, (groups.get(mi.vatRate) ?? 0) + mi.priceHt);
+  }
+  // Compute total TVA for the TTC price using prorated weights
+  let totalVat = 0;
+  for (const [rate, weightHt] of groups.entries()) {
+    const proportion = weightHt / totalItemsHt;
+    const partTtc = Math.round(ttcCents * proportion);
+    const partHt = ttcToHt(partTtc, rate);
+    totalVat += partTtc - partHt;
+  }
+  return ttcCents - totalVat;
+}
 
 export default function MenusPage() {
   const [menus, setMenus] = useState<Menu[]>([]);
@@ -75,17 +100,41 @@ export default function MenusPage() {
   };
 
   const openEdit = (menu: Menu) => {
+    const menuItems = menu.items.map((mi) => ({
+      productId: mi.productId,
+      productName: mi.product.name,
+      priceHt: mi.product.priceHt,
+      vatRate: Number(mi.product.vatRate),
+      isChoice: mi.isChoice,
+      choiceGroup: mi.choiceGroup ?? '',
+    }));
+
+    // Compute TTC from stored HT using prorated TVA
+    const totalItemsHt = menuItems.reduce((s, mi) => s + mi.priceHt, 0);
+    let menuTtc = 0;
+    if (totalItemsHt > 0) {
+      const groups = new Map<number, number>();
+      for (const mi of menuItems) {
+        groups.set(mi.vatRate, (groups.get(mi.vatRate) ?? 0) + mi.priceHt);
+      }
+      let allocated = 0;
+      const entries = Array.from(groups.entries());
+      for (let i = 0; i < entries.length; i++) {
+        const [rate, weightHt] = entries[i];
+        const partHt = i === entries.length - 1
+          ? menu.priceHt - allocated
+          : Math.round((weightHt / totalItemsHt) * menu.priceHt);
+        allocated += partHt;
+        menuTtc += computeTtc(partHt, rate);
+      }
+    } else {
+      menuTtc = computeTtc(menu.priceHt, 10);
+    }
+
     setForm({
       name: menu.name,
-      priceHt: centsToEuros(menu.priceHt),
-      items: menu.items.map((mi) => ({
-        productId: mi.productId,
-        productName: mi.product.name,
-        priceHt: mi.product.priceHt,
-        vatRate: Number(mi.product.vatRate),
-        isChoice: mi.isChoice,
-        choiceGroup: mi.choiceGroup ?? '',
-      })),
+      priceTtc: centsToEuros(menuTtc),
+      items: menuItems,
     });
     setEditingId(menu.id);
     setShowForm(true);
@@ -126,9 +175,12 @@ export default function MenusPage() {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
+      const ttcCents = eurosToCents(parseFloat(form.priceTtc));
+      const priceHt = computeMenuHtFromTtc(ttcCents, form.items);
+
       const body = {
         name: form.name,
-        priceHt: eurosToCents(parseFloat(form.priceHt)),
+        priceHt,
         items: form.items.map((item, idx) => ({
           productId: item.productId,
           isChoice: item.isChoice,
@@ -222,7 +274,26 @@ export default function MenusPage() {
                     </button>
                   </div>
                   <p className="text-xl font-bold text-primary">
-                    {formatPrice(menu.priceHt)} HT
+                    {(() => {
+                      const totalItemsHt = menu.items.reduce((s, mi) => s + mi.product.priceHt, 0);
+                      if (totalItemsHt > 0) {
+                        const groups = new Map<number, number>();
+                        for (const mi of menu.items) {
+                          groups.set(Number(mi.product.vatRate), (groups.get(Number(mi.product.vatRate)) ?? 0) + mi.product.priceHt);
+                        }
+                        let ttc = 0;
+                        let alloc = 0;
+                        const entries = Array.from(groups.entries());
+                        for (let i = 0; i < entries.length; i++) {
+                          const [rate, wHt] = entries[i];
+                          const partHt = i === entries.length - 1 ? menu.priceHt - alloc : Math.round((wHt / totalItemsHt) * menu.priceHt);
+                          alloc += partHt;
+                          ttc += computeTtc(partHt, rate);
+                        }
+                        return formatPrice(ttc);
+                      }
+                      return formatPrice(computeTtc(menu.priceHt, 10));
+                    })()}
                   </p>
                 </div>
                 <div className="flex gap-1">
@@ -253,7 +324,7 @@ export default function MenusPage() {
                     <div key={item.id} className="flex items-center gap-2 text-sm">
                       <span className="text-foreground">{item.product.name}</span>
                       <span className="text-xs text-muted-foreground">
-                        ({formatPrice(item.product.priceHt)} HT)
+                        ({formatPrice(computeTtc(item.product.priceHt, Number(item.product.vatRate)))} TTC)
                       </span>
                     </div>
                   ))}
@@ -266,7 +337,7 @@ export default function MenusPage() {
                         <div key={item.id} className="flex items-center gap-2 text-sm">
                           <span className="text-foreground">{item.product.name}</span>
                           <span className="text-xs text-muted-foreground">
-                            ({formatPrice(item.product.priceHt)} HT)
+                            ({formatPrice(computeTtc(item.product.priceHt, Number(item.product.vatRate)))} TTC)
                           </span>
                         </div>
                       ))}
@@ -309,16 +380,21 @@ export default function MenusPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="menuPrice">Prix HT (euros)</Label>
+                <Label htmlFor="menuPrice">Prix TTC (€)</Label>
                 <Input
                   id="menuPrice"
                   type="number"
                   step="0.01"
                   min="0"
-                  value={form.priceHt}
-                  onChange={(e) => setForm({ ...form, priceHt: e.target.value })}
-                  placeholder="10.50"
+                  value={form.priceTtc}
+                  onChange={(e) => setForm({ ...form, priceTtc: e.target.value })}
+                  placeholder="10.00"
                 />
+                {form.priceTtc && parseFloat(form.priceTtc) > 0 && form.items.length > 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    HT calculé : {centsToEuros(computeMenuHtFromTtc(eurosToCents(parseFloat(form.priceTtc)), form.items))} € (ventilation TVA auto)
+                  </p>
+                )}
               </div>
             </div>
 
@@ -350,7 +426,7 @@ export default function MenusPage() {
                       </div>
                       <span className="flex-1 font-medium">{product.name}</span>
                       <span className="text-xs text-muted-foreground">
-                        {formatPrice(product.priceHt)} HT — TVA {Number(product.vatRate)}%
+                        {formatPrice(computeTtc(product.priceHt, Number(product.vatRate)))} TTC — TVA {Number(product.vatRate)}%
                       </span>
                     </button>
                   );
@@ -382,7 +458,7 @@ export default function MenusPage() {
                           <div>
                             <p className="font-medium text-foreground">{item.productName}</p>
                             <p className="text-xs text-muted-foreground">
-                              {formatPrice(item.priceHt)} HT — TVA {item.vatRate}%
+                              {formatPrice(computeTtc(item.priceHt, item.vatRate))} TTC — TVA {item.vatRate}%
                             </p>
                           </div>
                           {item.isChoice && item.choiceGroup && (
@@ -451,7 +527,7 @@ export default function MenusPage() {
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={submitting || !form.name || !form.priceHt || (!editingId && form.items.length === 0)}
+                disabled={submitting || !form.name || !form.priceTtc || (!editingId && form.items.length === 0)}
               >
                 {submitting ? 'Enregistrement...' : editingId ? 'Modifier' : 'Créer'}
               </Button>
