@@ -115,10 +115,38 @@ services:
       - internal
       - web
 
+  cron:
+    build:
+      context: ./scripts
+      dockerfile: Dockerfile.cron
+    restart: always
+    environment:
+      DB_USER: ${DB_USER:-novacaisse}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: db
+      DB_NAME: novacaisse
+      S3_BUCKET: ${S3_BUCKET}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-fr-par}
+      API_URL: http://api:4000
+      WEB_URL: http://web:3000
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      ALERT_EMAIL: ${ALERT_EMAIL:-}
+    volumes:
+      - backup-data:/tmp/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+
 volumes:
   pgdata:
   redisdata:
   letsencrypt:
+  backup-data:
 
 networks:
   web:
