@@ -1,6 +1,19 @@
 import type { FastifyInstance } from 'fastify';
 import * as argon2 from 'argon2';
 
+const FORBIDDEN_RESPONSE = { error: 'Permissions insuffisantes' };
+
+/**
+ * Returns true if the acting user can manage the target role.
+ * OWNER  → can manage MANAGER and CASHIER
+ * MANAGER → can manage CASHIER only
+ */
+function canManageRole(actorRole: string, targetRole: string): boolean {
+  if (actorRole === 'OWNER') return targetRole !== 'OWNER';
+  if (actorRole === 'MANAGER') return targetRole === 'CASHIER';
+  return false;
+}
+
 export default async function userRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', fastify.authenticate);
 
@@ -47,11 +60,14 @@ export default async function userRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ error: 'Le PIN doit contenir 4 à 6 chiffres', code: 'INVALID_PIN' });
     }
 
-    // Role permission checks
-    if (body.role === 'OWNER' || body.role === 'MANAGER') {
-      if (request.user.role !== 'OWNER') {
-        return reply.status(403).send({ error: 'Seul un OWNER peut créer des MANAGER ou OWNER', code: 'FORBIDDEN' });
-      }
+    // Nobody can create an OWNER
+    if (body.role === 'OWNER') {
+      return reply.status(403).send(FORBIDDEN_RESPONSE);
+    }
+
+    // MANAGER can only create CASHIER
+    if (!canManageRole(request.user.role, body.role)) {
+      return reply.status(403).send(FORBIDDEN_RESPONSE);
     }
 
     // Verify PIN is not already used in this tenant
@@ -119,10 +135,18 @@ export default async function userRoutes(fastify: FastifyInstance) {
       return reply.status(404).send({ error: 'Utilisateur non trouvé', code: 'NOT_FOUND' });
     }
 
-    // Only OWNER can change to/from MANAGER/OWNER roles
-    if (body.role && (body.role === 'OWNER' || body.role === 'MANAGER' || existing.role === 'OWNER' || existing.role === 'MANAGER')) {
-      if (request.user.role !== 'OWNER') {
-        return reply.status(403).send({ error: 'Seul un OWNER peut modifier les rôles MANAGER/OWNER', code: 'FORBIDDEN' });
+    // Check actor can manage the target's current role
+    if (!canManageRole(request.user.role, existing.role)) {
+      return reply.status(403).send(FORBIDDEN_RESPONSE);
+    }
+
+    // If changing role, check actor can assign the new role too
+    if (body.role !== undefined) {
+      if (body.role === 'OWNER') {
+        return reply.status(403).send(FORBIDDEN_RESPONSE);
+      }
+      if (!canManageRole(request.user.role, body.role)) {
+        return reply.status(403).send(FORBIDDEN_RESPONSE);
       }
     }
 
@@ -167,6 +191,11 @@ export default async function userRoutes(fastify: FastifyInstance) {
       return reply.status(404).send({ error: 'Utilisateur non trouvé', code: 'NOT_FOUND' });
     }
 
+    // Check actor can manage the target's role
+    if (!canManageRole(request.user.role, existing.role)) {
+      return reply.status(403).send(FORBIDDEN_RESPONSE);
+    }
+
     // Verify new PIN is not already used
     const allUsers = await fastify.prisma.user.findMany({
       where: { tenantId: request.user.tenantId, id: { not: id } },
@@ -200,12 +229,22 @@ export default async function userRoutes(fastify: FastifyInstance) {
 
     const { id } = request.params as { id: string };
 
+    // OWNER cannot deactivate themselves
+    if (id === request.user.userId && request.user.role === 'OWNER') {
+      return reply.status(403).send(FORBIDDEN_RESPONSE);
+    }
+
     const existing = await fastify.prisma.user.findFirst({
       where: { id, tenantId: request.user.tenantId },
     });
 
     if (!existing) {
       return reply.status(404).send({ error: 'Utilisateur non trouvé', code: 'NOT_FOUND' });
+    }
+
+    // Check actor can manage the target's role
+    if (!canManageRole(request.user.role, existing.role)) {
+      return reply.status(403).send(FORBIDDEN_RESPONSE);
     }
 
     const user = await fastify.prisma.user.update({
@@ -242,6 +281,16 @@ export default async function userRoutes(fastify: FastifyInstance) {
 
     if (!existing) {
       return reply.status(404).send({ error: 'Utilisateur non trouvé', code: 'NOT_FOUND' });
+    }
+
+    // Nobody can delete an OWNER
+    if (existing.role === 'OWNER') {
+      return reply.status(403).send(FORBIDDEN_RESPONSE);
+    }
+
+    // Check actor can manage the target's role
+    if (!canManageRole(request.user.role, existing.role)) {
+      return reply.status(403).send(FORBIDDEN_RESPONSE);
     }
 
     await fastify.prisma.user.delete({ where: { id } });
