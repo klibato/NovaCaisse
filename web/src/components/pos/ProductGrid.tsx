@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { useCartStore } from '@/stores/cart.store';
-import { computeTtc, formatPrice } from '@/lib/utils';
+import { formatPrice } from '@/lib/utils';
 import { MenuSelectionModal } from '@/components/pos/MenuSelectionModal';
 import { SupplementModal } from '@/components/pos/SupplementModal';
 import { ProductOptionsModal } from '@/components/pos/ProductOptionsModal';
@@ -51,29 +51,12 @@ export function ProductGrid({ products, categories, menus }: ProductGridProps) {
     setTimeout(() => setFlashedId(null), 200);
   }, []);
 
-  const getDisplayPrice = (priceHt: number, vatRate: number): number => {
-    return computeTtc(priceHt, Number(vatRate));
+  const getDisplayPrice = (product: Product): number => {
+    return product.priceTtc;
   };
 
   const getMenuDisplayPrice = (menu: Menu): number => {
-    const totalItemsHt = menu.items.reduce((s, mi) => s + mi.product.priceHt, 0);
-    if (totalItemsHt > 0) {
-      const groups = new Map<number, number>();
-      for (const mi of menu.items) {
-        groups.set(Number(mi.product.vatRate), (groups.get(Number(mi.product.vatRate)) ?? 0) + mi.product.priceHt);
-      }
-      let ttc = 0;
-      let allocated = 0;
-      const entries = Array.from(groups.entries());
-      for (let i = 0; i < entries.length; i++) {
-        const [rate, weightHt] = entries[i];
-        const partHt = i === entries.length - 1 ? menu.priceHt - allocated : Math.round((weightHt / totalItemsHt) * menu.priceHt);
-        allocated += partHt;
-        ttc += computeTtc(partHt, rate);
-      }
-      return ttc;
-    }
-    return computeTtc(menu.priceHt, Number(menu.vatRate));
+    return menu.priceTtc;
   };
 
   const hasOptions = (product: Product) =>
@@ -213,7 +196,7 @@ export function ProductGrid({ products, categories, menus }: ProductGridProps) {
               {product.name}
             </span>
             <span className="mt-2 text-lg font-bold text-primary">
-              {formatPrice(getDisplayPrice(product.priceHt, product.vatRate))}
+              {formatPrice(getDisplayPrice(product))}
             </span>
             {product.category && (
               <span

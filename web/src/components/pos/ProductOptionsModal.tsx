@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { formatPrice, computeTtc } from '@/lib/utils';
+import { formatPrice } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -82,15 +82,15 @@ export function ProductOptionsModal({ product, open, onClose, onConfirm }: Produ
     0
   );
 
-  const optionsHt = optionGroups.reduce((sum, group) => {
+  const optionsTtc = optionGroups.reduce((sum, group) => {
     const selected = selections[group.id] ?? [];
     return sum + group.choices
       .filter((c) => selected.includes(c.id))
-      .reduce((s, c) => s + c.priceHt, 0);
+      .reduce((s, c) => s + c.priceTtc, 0);
   }, 0);
 
-  const totalHt = product.priceHt + supplementsHt + optionsHt;
-  const totalTtc = computeTtc(totalHt, Number(product.vatRate));
+  const supplementsTtc = Math.round(supplementsHt * (1 + Number(product.vatRate) / 100));
+  const totalTtc = product.priceTtc + supplementsTtc + optionsTtc;
 
   const handleConfirm = () => {
     const selectedSupplements: CartItemSupplement[] = supplements
@@ -111,6 +111,7 @@ export function ProductOptionsModal({ product, open, onClose, onConfirm }: Produ
             groupName: group.name,
             choiceName: choice.name,
             priceHt: choice.priceHt,
+            priceTtc: choice.priceTtc,
           });
         }
       }
@@ -160,9 +161,9 @@ export function ProductOptionsModal({ product, open, onClose, onConfirm }: Produ
                     }`}
                   >
                     <span className="font-medium">{choice.name}</span>
-                    {choice.priceHt > 0 ? (
+                    {choice.priceTtc > 0 ? (
                       <span className="text-sm text-muted-foreground">
-                        +{formatPrice(computeTtc(choice.priceHt, Number(product.vatRate)))}
+                        +{formatPrice(choice.priceTtc)}
                       </span>
                     ) : (
                       <Badge variant="secondary" className="text-xs">Inclus</Badge>
@@ -188,7 +189,7 @@ export function ProductOptionsModal({ product, open, onClose, onConfirm }: Produ
                       <Badge variant="secondary" className="text-xs">Gratuit</Badge>
                     ) : (
                       <span className="text-sm text-muted-foreground">
-                        +{formatPrice(computeTtc(sup.priceHt, Number(product.vatRate)))}
+                        +{formatPrice(Math.round(sup.priceHt * (1 + Number(product.vatRate) / 100)))}
                       </span>
                     )}
                   </div>

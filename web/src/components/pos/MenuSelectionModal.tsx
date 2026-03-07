@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useCartStore } from '@/stores/cart.store';
-import { computeTtc, formatPrice } from '@/lib/utils';
+import { formatPrice } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -135,6 +135,7 @@ export function MenuSelectionModal({ menu, open, onClose }: MenuSelectionModalPr
             groupName: group.name,
             choiceName: choice.name,
             priceHt: choice.priceHt,
+            priceTtc: choice.priceTtc,
           });
         }
       }
@@ -153,6 +154,7 @@ export function MenuSelectionModal({ menu, open, onClose }: MenuSelectionModalPr
       selectedItems.push({
         name: item.product.name,
         priceHt: item.product.priceHt,
+        priceTtc: item.product.priceTtc,
         vatRate: Number(item.product.vatRate),
         options: options && options.length > 0 ? options : undefined,
       });
@@ -169,6 +171,7 @@ export function MenuSelectionModal({ menu, open, onClose }: MenuSelectionModalPr
         selectedItems.push({
           name: selected.product.name,
           priceHt: selected.product.priceHt,
+          priceTtc: selected.product.priceTtc,
           vatRate: Number(selected.product.vatRate),
           options: options && options.length > 0 ? options : undefined,
         });
@@ -179,29 +182,10 @@ export function MenuSelectionModal({ menu, open, onClose }: MenuSelectionModalPr
     onClose();
   };
 
-  const menuTtc = (() => {
-    const totalItemsHt = menu.items.reduce((s, mi) => s + mi.product.priceHt, 0);
-    if (totalItemsHt > 0) {
-      const groups = new Map<number, number>();
-      for (const mi of menu.items) {
-        groups.set(Number(mi.product.vatRate), (groups.get(Number(mi.product.vatRate)) ?? 0) + mi.product.priceHt);
-      }
-      let ttc = 0;
-      let allocated = 0;
-      const entries = Array.from(groups.entries());
-      for (let i = 0; i < entries.length; i++) {
-        const [rate, weightHt] = entries[i];
-        const partHt = i === entries.length - 1 ? menu.priceHt - allocated : Math.round((weightHt / totalItemsHt) * menu.priceHt);
-        allocated += partHt;
-        ttc += computeTtc(partHt, rate);
-      }
-      return ttc;
-    }
-    return computeTtc(menu.priceHt, Number(menu.vatRate));
-  })();
+  const menuTtc = menu.priceTtc;
 
   // Render option groups for a product inline
-  const renderProductOptions = (productId: string, optionGroups: OptionGroup[], vatRate: number) => (
+  const renderProductOptions = (productId: string, optionGroups: OptionGroup[], _vatRate: number) => (
     <div className="ml-4 mt-1 space-y-2">
       {optionGroups.map((group) => (
         <div key={group.id}>
@@ -228,9 +212,9 @@ export function MenuSelectionModal({ menu, open, onClose }: MenuSelectionModalPr
                   }`}
                 >
                   {choice.name}
-                  {choice.priceHt > 0 && (
+                  {choice.priceTtc > 0 && (
                     <span className="ml-1 text-muted-foreground">
-                      +{formatPrice(computeTtc(choice.priceHt, vatRate))}
+                      +{formatPrice(choice.priceTtc)}
                     </span>
                   )}
                 </button>

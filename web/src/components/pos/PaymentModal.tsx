@@ -123,10 +123,11 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
     const totals = new Map<PaymentMethod, number>();
     for (const item of items) {
       const method = itemPayments[item.id] || 'card';
-      const supplementsHt = item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0);
-      const optionsHt = (item.options ?? []).reduce((s, opt) => s + opt.priceHt, 0);
-      const itemHt = (item.priceHt + supplementsHt + optionsHt) * item.qty;
-      const itemTtc = Math.round(itemHt * (1 + item.vatRate / 100));
+      const supplementsTtc = Math.round(
+        item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0) * (1 + item.vatRate / 100)
+      );
+      const optionsTtc = (item.options ?? []).reduce((s, opt) => s + opt.priceTtc, 0);
+      const itemTtc = (item.priceTtc + supplementsTtc + optionsTtc) * item.qty;
       totals.set(method, (totals.get(method) ?? 0) + itemTtc);
     }
 
@@ -149,10 +150,11 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
     const totals = new Map<PaymentMethod, number>();
     for (const item of items) {
       const method = itemPayments[item.id] || 'card';
-      const supplementsHt = item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0);
-      const optionsHt = (item.options ?? []).reduce((s, opt) => s + opt.priceHt, 0);
-      const itemHt = (item.priceHt + supplementsHt + optionsHt) * item.qty;
-      const itemTtc = Math.round(itemHt * (1 + item.vatRate / 100));
+      const supplementsTtc = Math.round(
+        item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0) * (1 + item.vatRate / 100)
+      );
+      const optionsTtc = (item.options ?? []).reduce((s, opt) => s + opt.priceTtc, 0);
+      const itemTtc = (item.priceTtc + supplementsTtc + optionsTtc) * item.qty;
       totals.set(method, (totals.get(method) ?? 0) + itemTtc);
     }
     return totals;
@@ -462,7 +464,7 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
                         <p className="truncate text-sm font-medium">{item.name}</p>
                         <p className="text-xs text-muted-foreground">
                           x{item.qty} — {formatPrice(
-                            Math.round((item.priceHt + item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0) + (item.options ?? []).reduce((s, opt) => s + opt.priceHt, 0)) * item.qty * (1 + item.vatRate / 100))
+                            (item.priceTtc + Math.round(item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0) * (1 + item.vatRate / 100)) + (item.options ?? []).reduce((s, opt) => s + opt.priceTtc, 0)) * item.qty
                           )}
                         </p>
                       </div>

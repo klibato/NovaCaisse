@@ -27,6 +27,7 @@ export interface OptionChoice {
   id: string;
   name: string;
   priceHt: number;
+  priceTtc: number;
   position: number;
   optionGroupId: string;
 }
@@ -47,6 +48,7 @@ export interface Product {
   tenantId: string;
   name: string;
   priceHt: number;
+  priceTtc: number;
   vatRate: number;
   categoryId: string | null;
   imageUrl: string | null;
@@ -69,6 +71,7 @@ export interface MenuItem {
     id: string;
     name: string;
     priceHt: number;
+    priceTtc: number;
     vatRate: number;
     optionGroups?: OptionGroup[];
   };
@@ -82,6 +85,7 @@ export interface Menu {
   tenantId: string;
   name: string;
   priceHt: number;
+  priceTtc: number;
   vatRate: number;
   categoryId: string | null;
   imageUrl: string | null;
@@ -108,11 +112,13 @@ export interface CartItemOption {
   groupName: string;
   choiceName: string;
   priceHt: number;
+  priceTtc: number;
 }
 
 export interface MenuCartDetail {
   name: string;
   priceHt: number;
+  priceTtc: number;
   vatRate: number;
   options?: CartItemOption[];
 }
@@ -123,6 +129,7 @@ export interface CartItem {
   name: string;
   qty: number;
   priceHt: number;
+  priceTtc: number;
   vatRate: number;
   supplements: CartItemSupplement[];
   options?: CartItemOption[];

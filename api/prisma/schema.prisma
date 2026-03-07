@@ -79,7 +79,8 @@ model Product {
   tenantId        String
   tenant          Tenant    @relation(fields: [tenantId], references: [id])
   name            String
-  priceHt         Int // centimes (850 = 8.50€)
+  priceHt         Int // centimes HT (dérivé de priceTtc)
+  priceTtc        Int // centimes TTC (prix saisi par le restaurateur)
   vatRate         Decimal   @default(10.0) // TVA unique selon conditionnement (5.5%, 10%, 20%)
   categoryId      String?
   category        Category? @relation(fields: [categoryId], references: [id])
@@ -97,7 +98,8 @@ model Menu {
   tenantId        String
   tenant          Tenant    @relation(fields: [tenantId], references: [id])
   name            String
-  priceHt         Int // prix menu en centimes
+  priceHt         Int // prix menu en centimes HT (dérivé de priceTtc)
+  priceTtc        Int // prix menu en centimes TTC (prix saisi par le restaurateur)
   vatRate         Decimal   @default(10.0) // TVA par défaut du menu
   categoryId      String?
   category        Category? @relation(fields: [categoryId], references: [id])
@@ -138,7 +140,8 @@ model OptionGroup {
 model OptionChoice {
   id            String      @id @default(cuid())
   name          String // "Poulet", "Bœuf", "Cheddar"
-  priceHt       Int         @default(0) // centimes, 0 = gratuit
+  priceHt       Int         @default(0) // centimes HT, dérivé de priceTtc
+  priceTtc      Int         @default(0) // centimes TTC, saisi par le restaurateur
   position      Int         @default(0)
   optionGroupId String
   optionGroup   OptionGroup @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)

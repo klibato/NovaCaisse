@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useCartStore, prorateMenuHt } from '@/stores/cart.store';
-import { computeTtc, formatPrice } from '@/lib/utils';
+import { useCartStore } from '@/stores/cart.store';
+import { formatPrice } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -64,26 +64,19 @@ export function Cart({ onEncaisser }: CartProps) {
       {/* Items list */}
       <div className="flex-1 overflow-y-auto">
         {items.map((item) => {
-          const supplementsHt = item.supplements.reduce(
-            (s, sup) => s + sup.priceHt * sup.qty,
+          // Supplements TTC (supplements stored as HT in JSON)
+          const supplementsTtc = Math.round(
+            item.supplements.reduce((s, sup) => s + sup.priceHt * sup.qty, 0) * (1 + item.vatRate / 100)
+          );
+          const optionsTtc = (item.options ?? []).reduce(
+            (s, opt) => s + opt.priceTtc,
             0
           );
-          const optionsHt = (item.options ?? []).reduce(
-            (s, opt) => s + opt.priceHt,
+          const menuItemOptionsTtc = (item.menuItems ?? []).reduce(
+            (s, mi) => s + (mi.options ?? []).reduce((os, opt) => os + opt.priceTtc, 0),
             0
           );
-          const menuItemOptionsHt = (item.menuItems ?? []).reduce(
-            (s, mi) => s + (mi.options ?? []).reduce((os, opt) => os + opt.priceHt, 0),
-            0
-          );
-          const lineHt = (item.priceHt + supplementsHt + optionsHt + menuItemOptionsHt) * item.qty;
-          let lineTtc: number;
-          if (item.isMenu && item.menuItems && item.menuItems.length > 0) {
-            const prorated = prorateMenuHt(item.priceHt + supplementsHt + optionsHt + menuItemOptionsHt, item.menuItems);
-            lineTtc = prorated.reduce((s, p) => s + computeTtc(p.baseHt * item.qty, p.rate), 0);
-          } else {
-            lineTtc = computeTtc(lineHt, item.vatRate);
-          }
+          const lineTtc = (item.priceTtc + supplementsTtc + optionsTtc + menuItemOptionsTtc) * item.qty;
 
           return (
             <div key={item.id} className="border-b px-4 py-3">
@@ -109,7 +102,7 @@ export function Cart({ onEncaisser }: CartProps) {
                             <div className="ml-2">
                               {mi.options.map((opt, oi) => (
                                 <p key={oi} className="text-xs text-muted-foreground/70">
-                                  {opt.groupName} : {opt.choiceName}{opt.priceHt > 0 ? ` (+${formatPrice(computeTtc(opt.priceHt, mi.vatRate))})` : ''}
+                                  {opt.groupName} : {opt.choiceName}{opt.priceTtc > 0 ? ` (+${formatPrice(opt.priceTtc)})` : ''}
                                 </p>
                               ))}
                             </div>
@@ -123,7 +116,7 @@ export function Cart({ onEncaisser }: CartProps) {
                     <div className="mt-0.5 ml-2">
                       {item.options.map((opt, i) => (
                         <p key={i} className="text-xs text-muted-foreground">
-                          {opt.groupName} : {opt.choiceName}{opt.priceHt > 0 ? ` (+${formatPrice(computeTtc(opt.priceHt, item.vatRate))})` : ''}
+                          {opt.groupName} : {opt.choiceName}{opt.priceTtc > 0 ? ` (+${formatPrice(opt.priceTtc)})` : ''}
                         </p>
                       ))}
                     </div>
@@ -133,7 +126,7 @@ export function Cart({ onEncaisser }: CartProps) {
                     <div className="mt-0.5 ml-2">
                       {item.supplements.map((sup, i) => (
                         <p key={i} className="text-xs text-muted-foreground">
-                          + {sup.name}{sup.qty > 1 ? ` x${sup.qty}` : ''}{sup.priceHt > 0 ? ` (+${formatPrice(computeTtc(sup.priceHt * sup.qty, item.vatRate))})` : ''}
+                          + {sup.name}{sup.qty > 1 ? ` x${sup.qty}` : ''}{sup.priceHt > 0 ? ` (+${formatPrice(Math.round(sup.priceHt * sup.qty * (1 + item.vatRate / 100)))})` : ''}
                         </p>
                       ))}
                     </div>
