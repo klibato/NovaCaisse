@@ -32,7 +32,8 @@ model Tenant {
   tickets    Ticket[]
   closures   Closure[]
   archives   Archive[]
-  auditLogs  AuditLog[]
+  auditLogs    AuditLog[]
+  optionGroups OptionGroup[]
 }
 
 // ─── Auth & RBAC ───
@@ -78,7 +79,8 @@ model Product {
   tenantId        String
   tenant          Tenant    @relation(fields: [tenantId], references: [id])
   name            String
-  priceHt         Int // centimes (850 = 8.50€)
+  priceHt         Int // centimes HT (dérivé de priceTtc)
+  priceTtc        Int // centimes TTC (prix saisi par le restaurateur)
   vatRate         Decimal   @default(10.0) // TVA unique selon conditionnement (5.5%, 10%, 20%)
   categoryId      String?
   category        Category? @relation(fields: [categoryId], references: [id])
@@ -87,7 +89,8 @@ model Product {
   active          Boolean   @default(true)
   createdAt       DateTime  @default(now())
 
-  menuItems MenuItem[]
+  menuItems    MenuItem[]
+  optionGroups OptionGroup[]
 }
 
 model Menu {
@@ -95,7 +98,8 @@ model Menu {
   tenantId        String
   tenant          Tenant    @relation(fields: [tenantId], references: [id])
   name            String
-  priceHt         Int // prix menu en centimes
+  priceHt         Int // prix menu en centimes HT (dérivé de priceTtc)
+  priceTtc        Int // prix menu en centimes TTC (prix saisi par le restaurateur)
   vatRate         Decimal   @default(10.0) // TVA par défaut du menu
   categoryId      String?
   category        Category? @relation(fields: [categoryId], references: [id])
@@ -115,6 +119,32 @@ model MenuItem {
   isChoice    Boolean @default(false)
   choiceGroup String? // "boisson", "accompagnement"
   position    Int     @default(0)
+}
+
+// ─── Options produit ───
+
+model OptionGroup {
+  id         String         @id @default(cuid())
+  name       String // "Viande", "Sauce", "Fromage"
+  required   Boolean        @default(true)
+  multiple   Boolean        @default(false)
+  maxChoices Int            @default(1)
+  position   Int            @default(0)
+  productId  String
+  product    Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  choices    OptionChoice[]
+  tenantId   String
+  tenant     Tenant         @relation(fields: [tenantId], references: [id])
+}
+
+model OptionChoice {
+  id            String      @id @default(cuid())
+  name          String // "Poulet", "Bœuf", "Cheddar"
+  priceHt       Int         @default(0) // centimes HT, dérivé de priceTtc
+  priceTtc      Int         @default(0) // centimes TTC, saisi par le restaurateur
+  position      Int         @default(0)
+  optionGroupId String
+  optionGroup   OptionGroup @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
 }
 
 // ─── Ventes (ISCA) ───

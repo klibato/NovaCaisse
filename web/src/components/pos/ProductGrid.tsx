@@ -2,12 +2,13 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { useCartStore } from '@/stores/cart.store';
-import { computeTtc, formatPrice } from '@/lib/utils';
+import { formatPrice } from '@/lib/utils';
 import { MenuSelectionModal } from '@/components/pos/MenuSelectionModal';
 import { SupplementModal } from '@/components/pos/SupplementModal';
+import { ProductOptionsModal } from '@/components/pos/ProductOptionsModal';
 import { Badge } from '@/components/ui/badge';
 import { Search, X } from 'lucide-react';
-import type { Product, Category, Menu, CartItemSupplement } from '@/types';
+import type { Product, Category, Menu, CartItemSupplement, CartItemOption } from '@/types';
 
 interface ProductGridProps {
   products: Product[];
@@ -19,10 +20,11 @@ export function ProductGrid({ products, categories, menus }: ProductGridProps) {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [selectedMenu, setSelectedMenu] = useState<Menu | null>(null);
   const [supplementProduct, setSupplementProduct] = useState<Product | null>(null);
+  const [optionsProduct, setOptionsProduct] = useState<Product | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [flashedId, setFlashedId] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const { addItem, addItemWithSupplements } = useCartStore();
+  const { addItem, addItemWithSupplements, addItemWithOptions } = useCartStore();
 
   const sortedCategories = [...categories].sort((a, b) => a.position - b.position);
 
@@ -49,13 +51,25 @@ export function ProductGrid({ products, categories, menus }: ProductGridProps) {
     setTimeout(() => setFlashedId(null), 200);
   }, []);
 
-  const getDisplayPrice = (priceHt: number, vatRate: number): number => {
-    return computeTtc(priceHt, Number(vatRate));
+  const getDisplayPrice = (product: Product): number => {
+    return product.priceTtc;
   };
+
+  const getMenuDisplayPrice = (menu: Menu): number => {
+    return menu.priceTtc;
+  };
+
+  const hasOptions = (product: Product) =>
+    (product.optionGroups && product.optionGroups.length > 0);
+
+  const hasSupplements = (product: Product) =>
+    (product.supplements && product.supplements.length > 0);
 
   const handleProductClick = (product: Product) => {
     triggerFlash(product.id);
-    if (product.supplements && product.supplements.length > 0) {
+    if (hasOptions(product)) {
+      setOptionsProduct(product);
+    } else if (hasSupplements(product)) {
       setSupplementProduct(product);
     } else {
       addItem(product);
@@ -65,6 +79,14 @@ export function ProductGrid({ products, categories, menus }: ProductGridProps) {
   const handleSupplementConfirm = (product: Product, supplements: CartItemSupplement[]) => {
     if (supplements.length > 0) {
       addItemWithSupplements(product, supplements);
+    } else {
+      addItem(product);
+    }
+  };
+
+  const handleOptionsConfirm = (product: Product, supplements: CartItemSupplement[], options: CartItemOption[]) => {
+    if (options.length > 0 || supplements.length > 0) {
+      addItemWithOptions(product, supplements, options);
     } else {
       addItem(product);
     }
@@ -140,7 +162,7 @@ export function ProductGrid({ products, categories, menus }: ProductGridProps) {
               {menu.name}
             </span>
             <span className="mt-2 text-lg font-bold text-primary">
-              {formatPrice(getDisplayPrice(menu.priceHt, menu.vatRate))}
+              {formatPrice(getMenuDisplayPrice(menu))}
             </span>
             {menu.category && (
               <span
@@ -161,16 +183,20 @@ export function ProductGrid({ products, categories, menus }: ProductGridProps) {
             className={`relative flex flex-col items-center justify-center rounded-lg border border-border bg-card p-4 shadow-sm transition-all hover:border-primary hover:shadow-md active:scale-95 ${flashedId === product.id ? 'ring-4 ring-green-400 bg-green-50 dark:bg-green-950' : ''}`}
             style={{ minHeight: '100px' }}
           >
-            {product.supplements && product.supplements.length > 0 && (
+            {hasOptions(product) ? (
+              <Badge variant="outline" className="absolute right-2 top-2 text-[10px]">
+                Options
+              </Badge>
+            ) : hasSupplements(product) ? (
               <Badge variant="outline" className="absolute right-2 top-2 text-[10px]">
                 Suppl.
               </Badge>
-            )}
+            ) : null}
             <span className="text-center text-base font-semibold text-foreground">
               {product.name}
             </span>
             <span className="mt-2 text-lg font-bold text-primary">
-              {formatPrice(getDisplayPrice(product.priceHt, product.vatRate))}
+              {formatPrice(getDisplayPrice(product))}
             </span>
             {product.category && (
               <span
@@ -206,6 +232,16 @@ export function ProductGrid({ products, categories, menus }: ProductGridProps) {
           open={!!supplementProduct}
           onClose={() => setSupplementProduct(null)}
           onConfirm={handleSupplementConfirm}
+        />
+      )}
+
+      {/* Product options modal */}
+      {optionsProduct && (
+        <ProductOptionsModal
+          product={optionsProduct}
+          open={!!optionsProduct}
+          onClose={() => setOptionsProduct(null)}
+          onConfirm={handleOptionsConfirm}
         />
       )}
     </div>

@@ -3,12 +3,19 @@ import { computeHash, GENESIS_HASH, type ChainInput } from '../isca/chain.js';
 import { signTicket } from '../isca/signature.js';
 import { computeTtc, computeVatAmount } from '../lib/utils.js';
 
+interface TicketItemOption {
+  groupName: string;
+  choiceName: string;
+  priceHt: number;
+}
+
 interface TicketItem {
   name: string;
   qty: number;
   priceHt: number;
   vatRate: number;
   supplements?: { name: string; priceHt: number; qty: number }[];
+  options?: TicketItemOption[];
 }
 
 interface Payment {
@@ -188,6 +195,13 @@ function computeTotals(items: TicketItem[]): {
     if (item.supplements) {
       for (const supp of item.supplements) {
         itemHt += supp.priceHt * supp.qty * item.qty;
+      }
+    }
+
+    // Ajouter les options payantes
+    if (item.options) {
+      for (const opt of item.options) {
+        itemHt += opt.priceHt * item.qty;
       }
     }
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { formatPrice, eurosToCents, centsToEuros } from '@/lib/utils';
+import { formatPrice, eurosToCents, centsToEuros, ttcToHt } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,31 +22,47 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Pencil, Trash2, X, Eye, EyeOff } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Plus, Pencil, Trash2, X, Eye, EyeOff, ChevronUp, ChevronDown } from 'lucide-react';
 import type { Product, Category, Supplement } from '@/types';
 
 interface SupplementForm {
   name: string;
-  priceHt: string;
+  priceTtc: string;
   maxQty: string;
+}
+
+interface OptionChoiceForm {
+  name: string;
+  priceTtc: string;
+}
+
+interface OptionGroupForm {
+  name: string;
+  required: boolean;
+  multiple: boolean;
+  maxChoices: string;
+  choices: OptionChoiceForm[];
 }
 
 interface ProductForm {
   name: string;
-  priceHt: string;
+  priceTtc: string;
   categoryId: string;
   vatRate: string;
   supplements: SupplementForm[];
+  optionGroups: OptionGroupForm[];
 }
 
-const EMPTY_SUPPLEMENT: SupplementForm = { name: '', priceHt: '0', maxQty: '1' };
+const EMPTY_SUPPLEMENT: SupplementForm = { name: '', priceTtc: '0', maxQty: '1' };
 
 const EMPTY_FORM: ProductForm = {
   name: '',
-  priceHt: '',
+  priceTtc: '',
   categoryId: '',
   vatRate: '10',
   supplements: [],
+  optionGroups: [],
 };
 
 export default function ProductsPage() {
@@ -84,18 +100,32 @@ export default function ProductsPage() {
   };
 
   const openEdit = (product: Product) => {
+    const vatRate = Number(product.vatRate);
+
     const supplements: SupplementForm[] = (product.supplements ?? []).map((s) => ({
       name: s.name,
-      priceHt: centsToEuros(s.priceHt),
+      priceTtc: centsToEuros((s as { priceTtc?: number }).priceTtc ?? Math.round(s.priceHt * (1 + vatRate / 100))),
       maxQty: String(s.maxQty),
+    }));
+
+    const optionGroups: OptionGroupForm[] = (product.optionGroups ?? []).map((g) => ({
+      name: g.name,
+      required: g.required,
+      multiple: g.multiple,
+      maxChoices: String(g.maxChoices),
+      choices: g.choices.map((c) => ({
+        name: c.name,
+        priceTtc: centsToEuros(c.priceTtc),
+      })),
     }));
 
     setForm({
       name: product.name,
-      priceHt: centsToEuros(product.priceHt),
+      priceTtc: centsToEuros(product.priceTtc),
       categoryId: product.categoryId || '',
-      vatRate: String(product.vatRate),
+      vatRate: String(vatRate),
       supplements,
+      optionGroups,
     });
     setEditingId(product.id);
     setShowForm(true);
@@ -105,7 +135,7 @@ export default function ProductsPage() {
     setForm({ ...form, supplements: [...form.supplements, { ...EMPTY_SUPPLEMENT }] });
   };
 
-  const updateSupplement = (index: number, field: keyof SupplementForm, value: string) => {
+  const updateSupplement = (index: number, field: 'name' | 'priceTtc' | 'maxQty', value: string) => {
     const updated = form.supplements.map((s, i) =>
       i === index ? { ...s, [field]: value } : s,
     );
@@ -116,26 +146,119 @@ export default function ProductsPage() {
     setForm({ ...form, supplements: form.supplements.filter((_, i) => i !== index) });
   };
 
+  // ─── Option Groups helpers ───
+  const addOptionGroup = () => {
+    setForm({
+      ...form,
+      optionGroups: [
+        ...form.optionGroups,
+        { name: '', required: true, multiple: false, maxChoices: '1', choices: [{ name: '', priceTtc: '0' }] },
+      ],
+    });
+  };
+
+  const removeOptionGroup = (index: number) => {
+    setForm({ ...form, optionGroups: form.optionGroups.filter((_, i) => i !== index) });
+  };
+
+  const updateOptionGroup = (index: number, field: string, value: string | boolean) => {
+    const updated = form.optionGroups.map((g, i) =>
+      i === index ? { ...g, [field]: value } : g,
+    );
+    setForm({ ...form, optionGroups: updated });
+  };
+
+  const moveOptionGroup = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= form.optionGroups.length) return;
+    const groups = [...form.optionGroups];
+    [groups[index], groups[target]] = [groups[target], groups[index]];
+    setForm({ ...form, optionGroups: groups });
+  };
+
+  const addChoice = (groupIndex: number) => {
+    const groups = form.optionGroups.map((g, i) =>
+      i === groupIndex ? { ...g, choices: [...g.choices, { name: '', priceTtc: '0' }] } : g,
+    );
+    setForm({ ...form, optionGroups: groups });
+  };
+
+  const removeChoice = (groupIndex: number, choiceIndex: number) => {
+    const groups = form.optionGroups.map((g, i) =>
+      i === groupIndex
+        ? { ...g, choices: g.choices.filter((_, ci) => ci !== choiceIndex) }
+        : g,
+    );
+    setForm({ ...form, optionGroups: groups });
+  };
+
+  const updateChoice = (groupIndex: number, choiceIndex: number, field: 'name' | 'priceTtc', value: string) => {
+    const groups = form.optionGroups.map((g, gi) =>
+      gi === groupIndex
+        ? {
+            ...g,
+            choices: g.choices.map((c, ci) =>
+              ci === choiceIndex ? { ...c, [field]: value } : c,
+            ),
+          }
+        : g,
+    );
+    setForm({ ...form, optionGroups: groups });
+  };
+
+  const moveChoice = (groupIndex: number, choiceIndex: number, direction: -1 | 1) => {
+    const target = choiceIndex + direction;
+    const group = form.optionGroups[groupIndex];
+    if (target < 0 || target >= group.choices.length) return;
+    const choices = [...group.choices];
+    [choices[choiceIndex], choices[target]] = [choices[target], choices[choiceIndex]];
+    const groups = form.optionGroups.map((g, i) =>
+      i === groupIndex ? { ...g, choices } : g,
+    );
+    setForm({ ...form, optionGroups: groups });
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const supplements: Supplement[] | null =
-        form.supplements.length > 0
-          ? form.supplements
-              .filter((s) => s.name.trim() !== '')
-              .map((s) => ({
-                name: s.name.trim(),
-                priceHt: eurosToCents(parseFloat(s.priceHt) || 0),
-                maxQty: Math.max(1, parseInt(s.maxQty, 10) || 1),
-              }))
-          : null;
+      const vatRate = parseFloat(form.vatRate);
+
+      const supplements = form.supplements.length > 0
+        ? form.supplements
+            .filter((s) => s.name.trim() !== '')
+            .map((s) => ({
+              name: s.name.trim(),
+              priceTtc: eurosToCents(parseFloat(s.priceTtc) || 0),
+              maxQty: Math.max(1, parseInt(s.maxQty, 10) || 1),
+            }))
+        : null;
+
+      const optionGroups = form.optionGroups.length > 0
+        ? form.optionGroups
+            .filter((g) => g.name.trim() !== '')
+            .map((g, gi) => ({
+              name: g.name.trim(),
+              required: g.required,
+              multiple: g.multiple,
+              maxChoices: Math.max(1, parseInt(g.maxChoices, 10) || 1),
+              position: gi,
+              choices: g.choices
+                .filter((c) => c.name.trim() !== '')
+                .map((c, ci) => ({
+                  name: c.name.trim(),
+                  priceTtc: eurosToCents(parseFloat(c.priceTtc) || 0),
+                  position: ci,
+                })),
+            }))
+        : null;
 
       const body = {
         name: form.name,
-        priceHt: eurosToCents(parseFloat(form.priceHt)),
+        priceTtc: eurosToCents(parseFloat(form.priceTtc)),
         categoryId: form.categoryId || null,
-        vatRate: parseFloat(form.vatRate),
+        vatRate,
         supplements,
+        optionGroups,
       };
 
       if (editingId) {
@@ -197,13 +320,16 @@ export default function ProductsPage() {
                 Catégorie
               </th>
               <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                Prix HT
+                Prix TTC
               </th>
               <th className="px-4 py-3 text-center text-sm font-medium text-muted-foreground">
                 TVA
               </th>
               <th className="px-4 py-3 text-center text-sm font-medium text-muted-foreground">
                 Suppl.
+              </th>
+              <th className="px-4 py-3 text-center text-sm font-medium text-muted-foreground">
+                Options
               </th>
               <th className="px-4 py-3 text-center text-sm font-medium text-muted-foreground">
                 Statut
@@ -230,7 +356,7 @@ export default function ProductsPage() {
                   )}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {formatPrice(product.priceHt)}
+                  {formatPrice(product.priceTtc)}
                 </td>
                 <td className="px-4 py-3 text-center text-sm text-muted-foreground">
                   {Number(product.vatRate)}%
@@ -239,6 +365,15 @@ export default function ProductsPage() {
                   {product.supplements && product.supplements.length > 0 ? (
                     <Badge variant="outline" className="text-xs">
                       {product.supplements.length}
+                    </Badge>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-center">
+                  {product.optionGroups && product.optionGroups.length > 0 ? (
+                    <Badge variant="outline" className="text-xs">
+                      {product.optionGroups.length}
                     </Badge>
                   ) : (
                     <span className="text-muted-foreground">—</span>
@@ -311,16 +446,21 @@ export default function ProductsPage() {
               />
             </div>
             <div>
-              <Label htmlFor="price">Prix HT (euros)</Label>
+              <Label htmlFor="price">Prix TTC (€)</Label>
               <Input
                 id="price"
                 type="number"
                 step="0.01"
                 min="0"
-                value={form.priceHt}
-                onChange={(e) => setForm({ ...form, priceHt: e.target.value })}
-                placeholder="7.50"
+                value={form.priceTtc}
+                onChange={(e) => setForm({ ...form, priceTtc: e.target.value })}
+                placeholder="9.00"
               />
+              {form.priceTtc && parseFloat(form.priceTtc) > 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  HT calculé : {centsToEuros(ttcToHt(eurosToCents(parseFloat(form.priceTtc)), parseFloat(form.vatRate)))} €
+                </p>
+              )}
             </div>
             <div>
               <Label>Catégorie</Label>
@@ -390,13 +530,13 @@ export default function ProductsPage() {
                       />
                     </div>
                     <div className="w-24">
-                      <Label className="text-xs">Prix HT</Label>
+                      <Label className="text-xs">Prix TTC</Label>
                       <Input
                         type="number"
                         step="0.01"
                         min="0"
-                        value={sup.priceHt}
-                        onChange={(e) => updateSupplement(i, 'priceHt', e.target.value)}
+                        value={sup.priceTtc}
+                        onChange={(e) => updateSupplement(i, 'priceTtc', e.target.value)}
                         placeholder="0.00"
                         className="h-8 text-sm"
                       />
@@ -425,11 +565,178 @@ export default function ProductsPage() {
               </div>
             </div>
 
+            {/* Option Groups section */}
+            <Separator />
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <Label>Options de personnalisation</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addOptionGroup}>
+                  <Plus className="mr-1 h-3 w-3" />
+                  Ajouter un groupe
+                </Button>
+              </div>
+
+              {form.optionGroups.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Aucune option. Ajoutez des groupes (viande, sauce, etc.) pour personnaliser le produit.
+                </p>
+              )}
+
+              <div className="space-y-4">
+                {form.optionGroups.map((group, gi) => (
+                  <div key={gi} className="rounded-lg border p-3 space-y-3">
+                    {/* Group header */}
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <Label className="text-xs">Nom du groupe</Label>
+                        <Input
+                          value={group.name}
+                          onChange={(e) => updateOptionGroup(gi, 'name', e.target.value)}
+                          placeholder="Viande, Sauce..."
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => moveOptionGroup(gi, -1)}
+                          disabled={gi === 0}
+                        >
+                          <ChevronUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => moveOptionGroup(gi, 1)}
+                          disabled={gi === form.optionGroups.length - 1}
+                        >
+                          <ChevronDown className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => removeOptionGroup(gi)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Group settings */}
+                    <div className="flex flex-wrap items-center gap-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={group.required}
+                          onCheckedChange={(val) => updateOptionGroup(gi, 'required', val)}
+                        />
+                        <span>Obligatoire</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={group.multiple}
+                          onCheckedChange={(val) => updateOptionGroup(gi, 'multiple', val)}
+                        />
+                        <span>Choix multiple</span>
+                      </div>
+                      {group.multiple && (
+                        <div className="flex items-center gap-1">
+                          <Label className="text-xs">Max choix</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={group.maxChoices}
+                            onChange={(e) => updateOptionGroup(gi, 'maxChoices', e.target.value)}
+                            className="h-7 w-16 text-xs"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Choices */}
+                    <div className="space-y-1.5">
+                      {group.choices.map((choice, ci) => (
+                        <div key={ci} className="flex items-end gap-2">
+                          <div className="flex-1">
+                            <Input
+                              value={choice.name}
+                              onChange={(e) => updateChoice(gi, ci, 'name', e.target.value)}
+                              placeholder="Poulet, Bœuf..."
+                              className="h-7 text-xs"
+                            />
+                          </div>
+                          <div className="w-20">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={choice.priceTtc}
+                              onChange={(e) => updateChoice(gi, ci, 'priceTtc', e.target.value)}
+                              placeholder="0.00"
+                              className="h-7 text-xs"
+                            />
+                          </div>
+                          <div className="flex items-center gap-0.5">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => moveChoice(gi, ci, -1)}
+                              disabled={ci === 0}
+                            >
+                              <ChevronUp className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => moveChoice(gi, ci, 1)}
+                              disabled={ci === group.choices.length - 1}
+                            >
+                              <ChevronDown className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive"
+                              onClick={() => removeChoice(gi, ci)}
+                              disabled={group.choices.length <= 1}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => addChoice(gi)}
+                      >
+                        <Plus className="mr-1 h-3 w-3" />
+                        Ajouter un choix
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setShowForm(false)}>
                 Annuler
               </Button>
-              <Button onClick={handleSubmit} disabled={submitting || !form.name || !form.priceHt}>
+              <Button onClick={handleSubmit} disabled={submitting || !form.name || !form.priceTtc}>
                 {submitting ? 'Enregistrement...' : editingId ? 'Modifier' : 'Créer'}
               </Button>
             </div>

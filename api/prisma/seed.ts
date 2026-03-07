@@ -110,11 +110,12 @@ async function main() {
         tenantId: tenant.id,
         name: 'Tacos Classique',
         priceHt: 750,
+        priceTtc: 825, // 7.50 * 1.10 = 8.25€
         vatRate: 10.0,
         categoryId: tacos.id,
         supplements: [
-          { name: 'Fromage', priceHt: 100, maxQty: 3 },
-          { name: 'Sauce Algérienne', priceHt: 0, maxQty: 1 },
+          { name: 'Fromage', priceHt: 100, priceTtc: 110, maxQty: 3 },
+          { name: 'Sauce Algérienne', priceHt: 0, priceTtc: 0, maxQty: 1 },
         ],
       },
     }),
@@ -123,6 +124,7 @@ async function main() {
         tenantId: tenant.id,
         name: 'Tacos Maxi',
         priceHt: 950,
+        priceTtc: 1045, // 9.50 * 1.10 = 10.45€
         vatRate: 10.0,
         categoryId: tacos.id,
       },
@@ -132,6 +134,7 @@ async function main() {
         tenantId: tenant.id,
         name: 'Burger Classic',
         priceHt: 850,
+        priceTtc: 935, // 8.50 * 1.10 = 9.35€
         vatRate: 10.0,
         categoryId: burgers.id,
       },
@@ -141,6 +144,7 @@ async function main() {
         tenantId: tenant.id,
         name: 'Coca-Cola 33cl',
         priceHt: 250,
+        priceTtc: 264, // 2.50 * 1.055 = 2.64€
         vatRate: 5.5,
         categoryId: boissons.id,
       },
@@ -150,6 +154,7 @@ async function main() {
         tenantId: tenant.id,
         name: 'Eau 50cl',
         priceHt: 150,
+        priceTtc: 158, // 1.50 * 1.055 = 1.58€
         vatRate: 5.5,
         categoryId: boissons.id,
       },
@@ -159,6 +164,7 @@ async function main() {
         tenantId: tenant.id,
         name: 'Tiramisu',
         priceHt: 400,
+        priceTtc: 440, // 4.00 * 1.10 = 4.40€
         vatRate: 10.0,
         categoryId: desserts.id,
       },
@@ -174,6 +180,7 @@ async function main() {
       tenantId: tenant.id,
       name: 'Menu Tacos',
       priceHt: 1050,
+      priceTtc: 1155, // 10.50 * 1.10 = 11.55€
       vatRate: 10.0,
       categoryId: tacos.id,
       items: {
@@ -201,6 +208,73 @@ async function main() {
     include: { items: true },
   });
   console.log(`Menu created: ${menu.name} with ${menu.items.length} items`);
+
+  // ─── Option Groups ───
+  const [tacosProduct, burgerProduct] = [products[0], products[2]];
+
+  // Tacos Classique — Viande (obligatoire, choix unique)
+  await prisma.optionGroup.create({
+    data: {
+      tenantId: tenant.id,
+      productId: tacosProduct.id,
+      name: 'Viande',
+      required: true,
+      multiple: false,
+      maxChoices: 1,
+      position: 0,
+      choices: {
+        create: [
+          { name: 'Poulet', priceHt: 0, priceTtc: 0, position: 0 },
+          { name: 'Bœuf', priceHt: 0, priceTtc: 0, position: 1 },
+          { name: 'Mixte', priceHt: 0, priceTtc: 0, position: 2 },
+          { name: 'Tenders', priceHt: 0, priceTtc: 0, position: 3 },
+        ],
+      },
+    },
+  });
+
+  // Tacos Classique — Sauce (obligatoire, choix unique)
+  await prisma.optionGroup.create({
+    data: {
+      tenantId: tenant.id,
+      productId: tacosProduct.id,
+      name: 'Sauce',
+      required: true,
+      multiple: false,
+      maxChoices: 1,
+      position: 1,
+      choices: {
+        create: [
+          { name: 'Algérienne', priceHt: 0, priceTtc: 0, position: 0 },
+          { name: 'Samouraï', priceHt: 0, priceTtc: 0, position: 1 },
+          { name: 'Biggy', priceHt: 0, priceTtc: 0, position: 2 },
+          { name: 'Blanche', priceHt: 0, priceTtc: 0, position: 3 },
+        ],
+      },
+    },
+  });
+
+  // Burger Classic — Personnalisation (optionnel, choix multiples)
+  await prisma.optionGroup.create({
+    data: {
+      tenantId: tenant.id,
+      productId: burgerProduct.id,
+      name: 'Personnalisation',
+      required: false,
+      multiple: true,
+      maxChoices: 3,
+      position: 0,
+      choices: {
+        create: [
+          { name: 'Sans oignon', priceHt: 0, priceTtc: 0, position: 0 },
+          { name: 'Sans salade', priceHt: 0, priceTtc: 0, position: 1 },
+          { name: 'Sans tomate', priceHt: 0, priceTtc: 0, position: 2 },
+        ],
+      },
+    },
+  });
+
+  console.log('Option groups created for Tacos Classique and Burger Classic');
 
   console.log('Seeding complete!');
 }

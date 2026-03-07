@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { formatPrice, eurosToCents, centsToEuros } from '@/lib/utils';
+import { formatPrice, eurosToCents, centsToEuros, ttcToHt } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,15 +30,40 @@ interface MenuItemForm {
 
 interface MenuForm {
   name: string;
-  priceHt: string;
+  priceTtc: string;
   items: MenuItemForm[];
 }
 
 const EMPTY_FORM: MenuForm = {
   name: '',
-  priceHt: '',
+  priceTtc: '',
   items: [],
 };
+
+/**
+ * Compute the HT price for a menu given a TTC price and sub-item composition.
+ * Uses prorated TVA ventilation across different vatRates.
+ */
+function computeMenuHtFromTtc(ttcCents: number, items: MenuItemForm[]): number {
+  const totalItemsHt = items.reduce((s, mi) => s + mi.priceHt, 0);
+  if (totalItemsHt === 0 || items.length === 0) {
+    return ttcToHt(ttcCents, 10);
+  }
+  // Group by vatRate and compute weight
+  const groups = new Map<number, number>();
+  for (const mi of items) {
+    groups.set(mi.vatRate, (groups.get(mi.vatRate) ?? 0) + mi.priceHt);
+  }
+  // Compute total TVA for the TTC price using prorated weights
+  let totalVat = 0;
+  for (const [rate, weightHt] of groups.entries()) {
+    const proportion = weightHt / totalItemsHt;
+    const partTtc = Math.round(ttcCents * proportion);
+    const partHt = ttcToHt(partTtc, rate);
+    totalVat += partTtc - partHt;
+  }
+  return ttcCents - totalVat;
+}
 
 export default function MenusPage() {
   const [menus, setMenus] = useState<Menu[]>([]);
@@ -75,17 +100,19 @@ export default function MenusPage() {
   };
 
   const openEdit = (menu: Menu) => {
+    const menuItems = menu.items.map((mi) => ({
+      productId: mi.productId,
+      productName: mi.product.name,
+      priceHt: mi.product.priceHt,
+      vatRate: Number(mi.product.vatRate),
+      isChoice: mi.isChoice,
+      choiceGroup: mi.choiceGroup ?? '',
+    }));
+
     setForm({
       name: menu.name,
-      priceHt: centsToEuros(menu.priceHt),
-      items: menu.items.map((mi) => ({
-        productId: mi.productId,
-        productName: mi.product.name,
-        priceHt: mi.product.priceHt,
-        vatRate: Number(mi.product.vatRate),
-        isChoice: mi.isChoice,
-        choiceGroup: mi.choiceGroup ?? '',
-      })),
+      priceTtc: centsToEuros(menu.priceTtc),
+      items: menuItems,
     });
     setEditingId(menu.id);
     setShowForm(true);
@@ -126,9 +153,11 @@ export default function MenusPage() {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
+      const ttcCents = eurosToCents(parseFloat(form.priceTtc));
+
       const body = {
         name: form.name,
-        priceHt: eurosToCents(parseFloat(form.priceHt)),
+        priceTtc: ttcCents,
         items: form.items.map((item, idx) => ({
           productId: item.productId,
           isChoice: item.isChoice,
@@ -222,7 +251,7 @@ export default function MenusPage() {
                     </button>
                   </div>
                   <p className="text-xl font-bold text-primary">
-                    {formatPrice(menu.priceHt)} HT
+                    {formatPrice(menu.priceTtc)}
                   </p>
                 </div>
                 <div className="flex gap-1">
@@ -253,7 +282,7 @@ export default function MenusPage() {
                     <div key={item.id} className="flex items-center gap-2 text-sm">
                       <span className="text-foreground">{item.product.name}</span>
                       <span className="text-xs text-muted-foreground">
-                        ({formatPrice(item.product.priceHt)} HT)
+                        ({formatPrice(item.product.priceTtc)} TTC)
                       </span>
                     </div>
                   ))}
@@ -266,7 +295,7 @@ export default function MenusPage() {
                         <div key={item.id} className="flex items-center gap-2 text-sm">
                           <span className="text-foreground">{item.product.name}</span>
                           <span className="text-xs text-muted-foreground">
-                            ({formatPrice(item.product.priceHt)} HT)
+                            ({formatPrice(item.product.priceTtc)} TTC)
                           </span>
                         </div>
                       ))}
@@ -309,16 +338,21 @@ export default function MenusPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="menuPrice">Prix HT (euros)</Label>
+                <Label htmlFor="menuPrice">Prix TTC (€)</Label>
                 <Input
                   id="menuPrice"
                   type="number"
                   step="0.01"
                   min="0"
-                  value={form.priceHt}
-                  onChange={(e) => setForm({ ...form, priceHt: e.target.value })}
-                  placeholder="10.50"
+                  value={form.priceTtc}
+                  onChange={(e) => setForm({ ...form, priceTtc: e.target.value })}
+                  placeholder="10.00"
                 />
+                {form.priceTtc && parseFloat(form.priceTtc) > 0 && form.items.length > 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    HT calculé : {centsToEuros(computeMenuHtFromTtc(eurosToCents(parseFloat(form.priceTtc)), form.items))} € (ventilation TVA auto)
+                  </p>
+                )}
               </div>
             </div>
 
@@ -350,7 +384,7 @@ export default function MenusPage() {
                       </div>
                       <span className="flex-1 font-medium">{product.name}</span>
                       <span className="text-xs text-muted-foreground">
-                        {formatPrice(product.priceHt)} HT — TVA {Number(product.vatRate)}%
+                        {formatPrice(product.priceTtc)} TTC — TVA {Number(product.vatRate)}%
                       </span>
                     </button>
                   );
@@ -361,35 +395,86 @@ export default function MenusPage() {
             {form.items.length > 0 && (
               <div>
                 <Label className="mb-2 block text-base">Configuration des items</Label>
-                <div className="space-y-3">
-                  {form.items.map((item) => (
-                    <div
-                      key={item.productId}
-                      className="flex items-center gap-4 rounded-lg border bg-card p-3"
-                    >
-                      <div className="flex-1">
-                        <p className="font-medium text-foreground">{item.productName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatPrice(item.priceHt)} HT — TVA {item.vatRate}%
-                        </p>
+                <p className="mb-3 text-sm text-muted-foreground">
+                  Chaque produit est &quot;Fixe&quot; (toujours inclus) ou dans un groupe de choix. Cliquez sur un groupe pour l&apos;assigner.
+                </p>
+                <div className="space-y-2">
+                  {form.items.map((item) => {
+                    // Collect all existing choice groups from form
+                    const PREDEFINED_GROUPS = ['boisson', 'accompagnement', 'sauce', 'dessert'];
+                    const existingGroups = form.items
+                      .filter((i) => i.isChoice && i.choiceGroup)
+                      .map((i) => i.choiceGroup);
+                    const allGroups = [...new Set([...PREDEFINED_GROUPS, ...existingGroups])];
+
+                    return (
+                      <div
+                        key={item.productId}
+                        className="rounded-lg border bg-card p-3"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <p className="font-medium text-foreground">{item.productName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatPrice(Math.round(item.priceHt * (1 + item.vatRate / 100)))} TTC — TVA {item.vatRate}%
+                            </p>
+                          </div>
+                          {item.isChoice && item.choiceGroup && (
+                            <Badge className="bg-primary text-xs">{item.choiceGroup}</Badge>
+                          )}
+                          {!item.isChoice && (
+                            <Badge variant="secondary" className="text-xs">Fixe</Badge>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateMenuItem(item.productId, 'isChoice', false);
+                              updateMenuItem(item.productId, 'choiceGroup', '');
+                            }}
+                            className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                              !item.isChoice
+                                ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
+                                : 'border-border hover:border-primary/50'
+                            }`}
+                          >
+                            Fixe
+                          </button>
+                          {allGroups.map((group) => (
+                            <button
+                              key={group}
+                              type="button"
+                              onClick={() => {
+                                updateMenuItem(item.productId, 'isChoice', true);
+                                updateMenuItem(item.productId, 'choiceGroup', group);
+                              }}
+                              className={`rounded-md border px-2.5 py-1 text-xs font-medium capitalize transition-colors ${
+                                item.isChoice && item.choiceGroup === group
+                                  ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary'
+                                  : 'border-border hover:border-primary/50'
+                              }`}
+                            >
+                              {group}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const name = prompt('Nom du groupe de choix :');
+                              if (name && name.trim()) {
+                                updateMenuItem(item.productId, 'isChoice', true);
+                                updateMenuItem(item.productId, 'choiceGroup', name.trim().toLowerCase());
+                              }
+                            }}
+                            className="rounded-md border border-dashed border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors"
+                          >
+                            + Autre
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          checked={item.isChoice}
-                          onCheckedChange={(v) => updateMenuItem(item.productId, 'isChoice', v)}
-                        />
-                        <Label className="text-xs whitespace-nowrap">Choix</Label>
-                      </div>
-                      {item.isChoice && (
-                        <Input
-                          value={item.choiceGroup}
-                          onChange={(e) => updateMenuItem(item.productId, 'choiceGroup', e.target.value)}
-                          placeholder="boisson"
-                          className="w-32"
-                        />
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -400,7 +485,7 @@ export default function MenusPage() {
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={submitting || !form.name || !form.priceHt || (!editingId && form.items.length === 0)}
+                disabled={submitting || !form.name || !form.priceTtc || (!editingId && form.items.length === 0)}
               >
                 {submitting ? 'Enregistrement...' : editingId ? 'Modifier' : 'Créer'}
               </Button>

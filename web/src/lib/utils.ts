@@ -21,6 +21,14 @@ export function computeVatAmount(amountHt: number, vatRate: number): number {
   return Math.round(amountHt * vatRate / 100);
 }
 
+/**
+ * Convert TTC cents to HT cents given a vatRate.
+ * priceHt = priceTtc / (1 + vatRate/100)
+ */
+export function ttcToHt(ttcCents: number, vatRate: number): number {
+  return Math.round(ttcCents / (1 + vatRate / 100));
+}
+
 export function formatPrice(cents: number): string {
   return `${centsToEuros(cents)} €`;
 }
