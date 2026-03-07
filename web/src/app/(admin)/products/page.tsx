@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { formatPrice, eurosToCents, centsToEuros } from '@/lib/utils';
+import { formatPrice, eurosToCents, centsToEuros, computeTtc, ttcToHt } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,13 +28,13 @@ import type { Product, Category, Supplement } from '@/types';
 
 interface SupplementForm {
   name: string;
-  priceHt: string;
+  priceTtc: string;
   maxQty: string;
 }
 
 interface OptionChoiceForm {
   name: string;
-  priceHt: string;
+  priceTtc: string;
 }
 
 interface OptionGroupForm {
@@ -47,18 +47,18 @@ interface OptionGroupForm {
 
 interface ProductForm {
   name: string;
-  priceHt: string;
+  priceTtc: string;
   categoryId: string;
   vatRate: string;
   supplements: SupplementForm[];
   optionGroups: OptionGroupForm[];
 }
 
-const EMPTY_SUPPLEMENT: SupplementForm = { name: '', priceHt: '0', maxQty: '1' };
+const EMPTY_SUPPLEMENT: SupplementForm = { name: '', priceTtc: '0', maxQty: '1' };
 
 const EMPTY_FORM: ProductForm = {
   name: '',
-  priceHt: '',
+  priceTtc: '',
   categoryId: '',
   vatRate: '10',
   supplements: [],
@@ -100,9 +100,11 @@ export default function ProductsPage() {
   };
 
   const openEdit = (product: Product) => {
+    const vatRate = Number(product.vatRate);
+
     const supplements: SupplementForm[] = (product.supplements ?? []).map((s) => ({
       name: s.name,
-      priceHt: centsToEuros(s.priceHt),
+      priceTtc: centsToEuros(computeTtc(s.priceHt, vatRate)),
       maxQty: String(s.maxQty),
     }));
 
@@ -113,15 +115,15 @@ export default function ProductsPage() {
       maxChoices: String(g.maxChoices),
       choices: g.choices.map((c) => ({
         name: c.name,
-        priceHt: centsToEuros(c.priceHt),
+        priceTtc: centsToEuros(computeTtc(c.priceHt, vatRate)),
       })),
     }));
 
     setForm({
       name: product.name,
-      priceHt: centsToEuros(product.priceHt),
+      priceTtc: centsToEuros(computeTtc(product.priceHt, vatRate)),
       categoryId: product.categoryId || '',
-      vatRate: String(product.vatRate),
+      vatRate: String(vatRate),
       supplements,
       optionGroups,
     });
@@ -133,7 +135,7 @@ export default function ProductsPage() {
     setForm({ ...form, supplements: [...form.supplements, { ...EMPTY_SUPPLEMENT }] });
   };
 
-  const updateSupplement = (index: number, field: keyof SupplementForm, value: string) => {
+  const updateSupplement = (index: number, field: 'name' | 'priceTtc' | 'maxQty', value: string) => {
     const updated = form.supplements.map((s, i) =>
       i === index ? { ...s, [field]: value } : s,
     );
@@ -150,7 +152,7 @@ export default function ProductsPage() {
       ...form,
       optionGroups: [
         ...form.optionGroups,
-        { name: '', required: true, multiple: false, maxChoices: '1', choices: [{ name: '', priceHt: '0' }] },
+        { name: '', required: true, multiple: false, maxChoices: '1', choices: [{ name: '', priceTtc: '0' }] },
       ],
     });
   };
@@ -176,7 +178,7 @@ export default function ProductsPage() {
 
   const addChoice = (groupIndex: number) => {
     const groups = form.optionGroups.map((g, i) =>
-      i === groupIndex ? { ...g, choices: [...g.choices, { name: '', priceHt: '0' }] } : g,
+      i === groupIndex ? { ...g, choices: [...g.choices, { name: '', priceTtc: '0' }] } : g,
     );
     setForm({ ...form, optionGroups: groups });
   };
@@ -190,7 +192,7 @@ export default function ProductsPage() {
     setForm({ ...form, optionGroups: groups });
   };
 
-  const updateChoice = (groupIndex: number, choiceIndex: number, field: keyof OptionChoiceForm, value: string) => {
+  const updateChoice = (groupIndex: number, choiceIndex: number, field: 'name' | 'priceTtc', value: string) => {
     const groups = form.optionGroups.map((g, gi) =>
       gi === groupIndex
         ? {
@@ -219,13 +221,15 @@ export default function ProductsPage() {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
+      const vatRate = parseFloat(form.vatRate);
+
       const supplements: Supplement[] | null =
         form.supplements.length > 0
           ? form.supplements
               .filter((s) => s.name.trim() !== '')
               .map((s) => ({
                 name: s.name.trim(),
-                priceHt: eurosToCents(parseFloat(s.priceHt) || 0),
+                priceHt: ttcToHt(eurosToCents(parseFloat(s.priceTtc) || 0), vatRate),
                 maxQty: Math.max(1, parseInt(s.maxQty, 10) || 1),
               }))
           : null;
@@ -243,7 +247,7 @@ export default function ProductsPage() {
                 .filter((c) => c.name.trim() !== '')
                 .map((c, ci) => ({
                   name: c.name.trim(),
-                  priceHt: eurosToCents(parseFloat(c.priceHt) || 0),
+                  priceHt: ttcToHt(eurosToCents(parseFloat(c.priceTtc) || 0), vatRate),
                   position: ci,
                 })),
             }))
@@ -251,9 +255,9 @@ export default function ProductsPage() {
 
       const body = {
         name: form.name,
-        priceHt: eurosToCents(parseFloat(form.priceHt)),
+        priceHt: ttcToHt(eurosToCents(parseFloat(form.priceTtc)), vatRate),
         categoryId: form.categoryId || null,
-        vatRate: parseFloat(form.vatRate),
+        vatRate,
         supplements,
         optionGroups,
       };
@@ -317,7 +321,7 @@ export default function ProductsPage() {
                 Catégorie
               </th>
               <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">
-                Prix HT
+                Prix TTC
               </th>
               <th className="px-4 py-3 text-center text-sm font-medium text-muted-foreground">
                 TVA
@@ -353,7 +357,7 @@ export default function ProductsPage() {
                   )}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {formatPrice(product.priceHt)}
+                  {formatPrice(computeTtc(product.priceHt, Number(product.vatRate)))}
                 </td>
                 <td className="px-4 py-3 text-center text-sm text-muted-foreground">
                   {Number(product.vatRate)}%
@@ -443,16 +447,21 @@ export default function ProductsPage() {
               />
             </div>
             <div>
-              <Label htmlFor="price">Prix HT (euros)</Label>
+              <Label htmlFor="price">Prix TTC (€)</Label>
               <Input
                 id="price"
                 type="number"
                 step="0.01"
                 min="0"
-                value={form.priceHt}
-                onChange={(e) => setForm({ ...form, priceHt: e.target.value })}
-                placeholder="7.50"
+                value={form.priceTtc}
+                onChange={(e) => setForm({ ...form, priceTtc: e.target.value })}
+                placeholder="9.00"
               />
+              {form.priceTtc && parseFloat(form.priceTtc) > 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  HT calculé : {centsToEuros(ttcToHt(eurosToCents(parseFloat(form.priceTtc)), parseFloat(form.vatRate)))} €
+                </p>
+              )}
             </div>
             <div>
               <Label>Catégorie</Label>
@@ -522,13 +531,13 @@ export default function ProductsPage() {
                       />
                     </div>
                     <div className="w-24">
-                      <Label className="text-xs">Prix HT</Label>
+                      <Label className="text-xs">Prix TTC</Label>
                       <Input
                         type="number"
                         step="0.01"
                         min="0"
-                        value={sup.priceHt}
-                        onChange={(e) => updateSupplement(i, 'priceHt', e.target.value)}
+                        value={sup.priceTtc}
+                        onChange={(e) => updateSupplement(i, 'priceTtc', e.target.value)}
                         placeholder="0.00"
                         className="h-8 text-sm"
                       />
@@ -668,8 +677,8 @@ export default function ProductsPage() {
                               type="number"
                               step="0.01"
                               min="0"
-                              value={choice.priceHt}
-                              onChange={(e) => updateChoice(gi, ci, 'priceHt', e.target.value)}
+                              value={choice.priceTtc}
+                              onChange={(e) => updateChoice(gi, ci, 'priceTtc', e.target.value)}
                               placeholder="0.00"
                               className="h-7 text-xs"
                             />
@@ -728,7 +737,7 @@ export default function ProductsPage() {
               <Button variant="outline" onClick={() => setShowForm(false)}>
                 Annuler
               </Button>
-              <Button onClick={handleSubmit} disabled={submitting || !form.name || !form.priceHt}>
+              <Button onClick={handleSubmit} disabled={submitting || !form.name || !form.priceTtc}>
                 {submitting ? 'Enregistrement...' : editingId ? 'Modifier' : 'Créer'}
               </Button>
             </div>

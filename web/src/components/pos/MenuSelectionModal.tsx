@@ -179,7 +179,26 @@ export function MenuSelectionModal({ menu, open, onClose }: MenuSelectionModalPr
     onClose();
   };
 
-  const menuTtc = computeTtc(menu.priceHt, Number(menu.vatRate));
+  const menuTtc = (() => {
+    const totalItemsHt = menu.items.reduce((s, mi) => s + mi.product.priceHt, 0);
+    if (totalItemsHt > 0) {
+      const groups = new Map<number, number>();
+      for (const mi of menu.items) {
+        groups.set(Number(mi.product.vatRate), (groups.get(Number(mi.product.vatRate)) ?? 0) + mi.product.priceHt);
+      }
+      let ttc = 0;
+      let allocated = 0;
+      const entries = Array.from(groups.entries());
+      for (let i = 0; i < entries.length; i++) {
+        const [rate, weightHt] = entries[i];
+        const partHt = i === entries.length - 1 ? menu.priceHt - allocated : Math.round((weightHt / totalItemsHt) * menu.priceHt);
+        allocated += partHt;
+        ttc += computeTtc(partHt, rate);
+      }
+      return ttc;
+    }
+    return computeTtc(menu.priceHt, Number(menu.vatRate));
+  })();
 
   // Render option groups for a product inline
   const renderProductOptions = (productId: string, optionGroups: OptionGroup[], vatRate: number) => (
