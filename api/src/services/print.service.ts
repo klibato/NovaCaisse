@@ -138,14 +138,12 @@ export async function generateClientPdf(ticket: Ticket, tenant: TenantInfo): Pro
             menuItems.push(items[i]);
           }
 
-          // Total TTC for the whole menu group
-          let menuTotalHt = 0;
+          // Total TTC for the whole menu group (per-item vatRate)
+          let menuTtc = 0;
           for (const mi of menuItems) {
             const optHt = (mi.options ?? []).reduce((s, o) => s + o.priceHt, 0);
-            menuTotalHt += (mi.priceHt + optHt) * mi.qty;
+            menuTtc += computeTtcCents((mi.priceHt + optHt) * mi.qty, mi.vatRate);
           }
-          // Use first item's vatRate for approximate TTC display of menu header
-          const menuTtc = computeTtcCents(menuTotalHt, menuItems[0].vatRate);
 
           doc.font(fontBold).text(
             `${item.qty}x ${item.menuName}`,

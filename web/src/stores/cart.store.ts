@@ -249,7 +249,7 @@ export const useCartStore = create<CartState>()((set, get) => ({
  * Prorate a menu's HT price across its component items based on their
  * original HT price weights, grouped by vatRate.
  */
-function prorateMenuHt(
+export function prorateMenuHt(
   menuPriceHt: number,
   menuItems: MenuCartDetail[]
 ): { rate: number; baseHt: number }[] {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useCartStore } from '@/stores/cart.store';
+import { useCartStore, prorateMenuHt } from '@/stores/cart.store';
 import { computeTtc, formatPrice } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -77,7 +77,13 @@ export function Cart({ onEncaisser }: CartProps) {
             0
           );
           const lineHt = (item.priceHt + supplementsHt + optionsHt + menuItemOptionsHt) * item.qty;
-          const lineTtc = computeTtc(lineHt, item.vatRate);
+          let lineTtc: number;
+          if (item.isMenu && item.menuItems && item.menuItems.length > 0) {
+            const prorated = prorateMenuHt(item.priceHt + supplementsHt + optionsHt + menuItemOptionsHt, item.menuItems);
+            lineTtc = prorated.reduce((s, p) => s + computeTtc(p.baseHt * item.qty, p.rate), 0);
+          } else {
+            lineTtc = computeTtc(lineHt, item.vatRate);
+          }
 
           return (
             <div key={item.id} className="border-b px-4 py-3">

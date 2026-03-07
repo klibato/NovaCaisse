@@ -127,13 +127,12 @@ export function buildClientTicket(ticket: TicketData, shopName = 'NovaCaisse'): 
           menuItems.push(ticket.items[i]);
         }
 
-        // Total TTC for menu group
-        let menuTotalHt = 0;
+        // Total TTC for menu group (per-item vatRate)
+        let menuTtc = 0;
         for (const mi of menuItems) {
           const optHt = (mi.options ?? []).reduce((s, o) => s + o.priceHt, 0);
-          menuTotalHt += (mi.priceHt + optHt) * mi.qty;
+          menuTtc += Math.round((mi.priceHt + optHt) * mi.qty * (1 + mi.vatRate / 100));
         }
-        const menuTtc = Math.round(menuTotalHt * (1 + menuItems[0].vatRate / 100));
 
         line(padLine(`${item.qty}x ${item.menuName}`, formatCents(menuTtc)));
         for (const mi of menuItems) {
