@@ -40,7 +40,7 @@ export async function buildApp() {
 
   // --- Plugins ---
   await app.register(cors, {
-    origin: (origin: string | undefined, cb: (err: Error | null, allow?: string | boolean) => void) => {
+    origin: ((origin: string | undefined, cb: (err: Error | null, allow?: string | boolean) => void) => {
       if (!origin) return cb(null, true);
       if (
         origin === 'http://localhost:3000' ||
@@ -50,7 +50,7 @@ export async function buildApp() {
         return cb(null, origin);
       }
       cb(new Error('CORS not allowed'), false);
-    },
+    }) as any,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   });

@@ -58,7 +58,7 @@ export const usePrinterStore = create<PrinterState>()((set, get) => ({
     // Find OUT endpoint
     const iface = device.configuration?.interfaces[0];
     const endpoint = iface?.alternate.endpoints.find(
-      (ep) => ep.direction === 'out',
+      (ep: USBEndpoint) => ep.direction === 'out',
     );
 
     if (endpoint) {
