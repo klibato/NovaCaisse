@@ -70,7 +70,7 @@ interface USBDevice {
   selectConfiguration(configurationValue: number): Promise<void>;
   claimInterface(interfaceNumber: number): Promise<void>;
   releaseInterface(interfaceNumber: number): Promise<void>;
-  transferOut(endpointNumber: number, data: BufferSource): Promise<USBOutTransferResult>;
+  transferOut(endpointNumber: number, data: ArrayBuffer | ArrayBufferView | DataView): Promise<USBOutTransferResult>;
 }
 
 interface USB {
