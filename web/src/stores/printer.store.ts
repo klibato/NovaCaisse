@@ -1,5 +1,33 @@
 import { create } from 'zustand';
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+declare global {
+  interface USBDevice {
+    open(): Promise<void>;
+    close(): Promise<void>;
+    selectConfiguration(configurationValue: number): Promise<void>;
+    claimInterface(interfaceNumber: number): Promise<void>;
+    transferOut(endpointNumber: number, data: any): Promise<any>;
+    configuration: {
+      interfaces: Array<{
+        interfaceNumber: number;
+        alternate: {
+          endpoints: Array<{ direction: string; endpointNumber: number }>;
+        };
+      }>;
+      configurationValue: number;
+    } | null;
+    configurations: Array<{ configurationValue: number }>;
+  }
+  interface USB {
+    requestDevice(options: { filters: Array<Record<string, unknown>> }): Promise<USBDevice>;
+  }
+  interface Navigator {
+    usb: USB;
+  }
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 interface PrinterState {
   device: USBDevice | null;
   isConnected: boolean;
@@ -58,7 +86,7 @@ export const usePrinterStore = create<PrinterState>()((set, get) => ({
     // Find OUT endpoint
     const iface = device.configuration?.interfaces[0];
     const endpoint = iface?.alternate.endpoints.find(
-      (ep) => ep.direction === 'out',
+      (ep: { direction: string; endpointNumber: number }) => ep.direction === 'out',
     );
 
     if (endpoint) {
