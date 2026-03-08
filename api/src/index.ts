@@ -45,27 +45,26 @@ export async function buildApp() {
 
   // CORS: strict in production, permissive in dev
   await app.register(cors, {
-    origin: (origin: string | undefined, cb: (err: Error | null, allow?: string | boolean) => void) => {
+    origin: (origin, cb) => {
       if (!origin) return cb(null, true);
       if (isProd) {
         // Production: only *.novacaisse.fr
         if (
           origin === 'https://novacaisse.fr' ||
-          origin.match(/^https:\/\/[\w-]+\.novacaisse\.fr$/)
+          /^https:\/\/[\w-]+\.novacaisse\.fr$/.test(origin)
         ) {
           return cb(null, origin);
         }
-        cb(new Error('CORS not allowed'), false);
-      } else {
-        // Dev: localhost
-        if (
-          origin === 'http://localhost:3000' ||
-          origin.match(/^http:\/\/[\w-]+\.localhost:3000$/)
-        ) {
-          return cb(null, origin);
-        }
-        cb(new Error('CORS not allowed'), false);
+        return cb(new Error('CORS not allowed'), false);
       }
+      // Dev: localhost
+      if (
+        origin === 'http://localhost:3000' ||
+        /^http:\/\/[\w-]+\.localhost:3000$/.test(origin)
+      ) {
+        return cb(null, origin);
+      }
+      return cb(new Error('CORS not allowed'), false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
