@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
-  const response = NextResponse.next();
+  const { pathname } = request.nextUrl;
 
   // Extract subdomain: kebab-du-coin.novacaisse.fr or kebab-du-coin.localhost:3000
   let slug: string | null = null;
@@ -22,15 +22,25 @@ export function middleware(request: NextRequest) {
     slug = null;
   }
 
-  if (slug) {
-    // Set cookie so the client-side can read it
-    response.cookies.set('tenant-slug', slug, {
-      path: '/',
-      sameSite: 'lax',
-      httpOnly: false, // needs to be readable by JS
-    });
+  // No subdomain → landing page (marketing site)
+  // Allow /register, /login, and landing page routes on the root domain
+  if (!slug) {
+    const response = NextResponse.next();
+    // Landing pages don't need tenant-slug cookie
+    response.cookies.delete('tenant-slug');
+    return response;
   }
 
+  // With subdomain → tenant app (set cookie for client-side)
+  const response = NextResponse.next();
+  response.cookies.set('tenant-slug', slug, {
+    path: '/',
+    sameSite: 'lax',
+    httpOnly: false, // needs to be readable by JS
+  });
+
+  // If tenant user tries to access landing-only routes, let them through
+  // (they might want /login which is the tenant login)
   return response;
 }
 
