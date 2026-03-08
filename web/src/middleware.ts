@@ -25,6 +25,14 @@ export function middleware(request: NextRequest) {
   // No subdomain → landing page (marketing site)
   // Allow /register, /login, and landing page routes on the root domain
   if (!slug) {
+    // Rewrite "/" to "/landing" so the landing page is served without a redirect
+    if (pathname === '/') {
+      const url = request.nextUrl.clone();
+      url.pathname = '/landing';
+      const response = NextResponse.rewrite(url);
+      response.cookies.delete('tenant-slug');
+      return response;
+    }
     const response = NextResponse.next();
     // Landing pages don't need tenant-slug cookie
     response.cookies.delete('tenant-slug');
