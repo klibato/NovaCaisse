@@ -1,7 +1,7 @@
 import type { PrismaClient, Prisma, ServiceMode } from '@prisma/client';
 import { computeHash, GENESIS_HASH, type ChainInput } from '../isca/chain.js';
 import { signTicket } from '../isca/signature.js';
-import { computeTtc, computeVatAmount } from '../lib/utils.js';
+import { computeVatAmount } from '../lib/utils.js';
 
 interface TicketItemOption {
   groupName: string;
