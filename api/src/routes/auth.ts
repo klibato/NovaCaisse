@@ -90,8 +90,10 @@ export default async function authRoutes(fastify: FastifyInstance) {
       name: matchedUser.name,
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const token = fastify.jwt.sign(payload as any, { expiresIn: '8h' });
     const refreshToken = fastify.jwt.sign(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       { userId: matchedUser.id, tenantId: matchedUser.tenantId, type: 'refresh' } as any,
       { expiresIn: '7d' },
     );
@@ -150,8 +152,10 @@ export default async function authRoutes(fastify: FastifyInstance) {
         name: user.name,
       };
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const token = fastify.jwt.sign(payload as any, { expiresIn: '8h' });
       const newRefreshToken = fastify.jwt.sign(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         { userId: user.id, tenantId: user.tenantId, type: 'refresh' } as any,
         { expiresIn: '7d' },
       );

@@ -50,6 +50,7 @@ export async function buildApp() {
         return cb(null, origin);
       }
       cb(new Error('CORS not allowed'), false);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
