@@ -184,7 +184,7 @@ export default function DashboardPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}€`} />
-                  <Tooltip formatter={(value: number) => [`${value.toFixed(2)} €`, 'CA TTC']} />
+                  <Tooltip formatter={(value: number | undefined) => [`${(value ?? 0).toFixed(2)} €`, 'CA TTC']} />
                   <Area
                     type="monotone"
                     dataKey="total"
@@ -214,7 +214,7 @@ export default function DashboardPage() {
                 <BarChart data={topProduitsData} layout="vertical" margin={{ left: 10 }}>
                   <XAxis type="number" tick={{ fontSize: 11 }} />
                   <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={120} />
-                  <Tooltip formatter={(value: number) => [`${value}`, 'Vendus']} />
+                  <Tooltip formatter={(value: number | undefined) => [`${value ?? 0}`, 'Vendus']} />
                   <Bar dataKey="qty" fill="#2563eb" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -245,8 +245,8 @@ export default function DashboardPage() {
                     outerRadius={100}
                     paddingAngle={3}
                     dataKey="value"
-                    label={({ name, percent }: { name: string; percent: number }) =>
-                      `${name} ${(percent * 100).toFixed(0)}%`
+                    label={(props: any) =>
+                      `${props.name ?? ''} ${((props.percent ?? 0) * 100).toFixed(0)}%`
                     }
                   >
                     {pieData.map((_, index) => (
@@ -254,7 +254,7 @@ export default function DashboardPage() {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: number) => [formatPrice(value), 'Montant']}
+                    formatter={(value: number | undefined) => [formatPrice(value ?? 0), 'Montant']}
                   />
                   <Legend />
                 </PieChart>

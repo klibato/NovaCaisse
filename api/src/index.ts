@@ -45,7 +45,7 @@ export async function buildApp() {
 
   // CORS: strict in production, permissive in dev
   await app.register(cors, {
-    origin: (origin, cb) => {
+    origin: ((origin: string | undefined, cb: (err: Error | null, allow?: string | boolean) => void) => {
       if (!origin) return cb(null, true);
       if (isProd) {
         // Production: only *.novacaisse.fr
@@ -64,8 +64,9 @@ export async function buildApp() {
       ) {
         return cb(null, origin);
       }
-      return cb(new Error('CORS not allowed'), false);
-    },
+      cb(new Error('CORS not allowed'), false);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   });

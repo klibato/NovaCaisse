@@ -1,7 +1,7 @@
-import type { PrismaClient, ServiceMode } from '@prisma/client';
+import type { PrismaClient, Prisma, ServiceMode } from '@prisma/client';
 import { computeHash, GENESIS_HASH, type ChainInput } from '../isca/chain.js';
 import { signTicket } from '../isca/signature.js';
-import { computeTtc, computeVatAmount } from '../lib/utils.js';
+import { computeVatAmount } from '../lib/utils.js';
 
 interface TicketItemOption {
   groupName: string;
@@ -128,11 +128,11 @@ export async function createTicket(
         tenantId: input.tenantId,
         sequenceNumber,
         serviceMode: input.serviceMode,
-        items: JSON.parse(JSON.stringify(input.items)),
+        items: input.items as unknown as Prisma.InputJsonValue,
         totalHt,
         totalTtc,
-        vatDetails: JSON.parse(JSON.stringify(vatDetails)),
-        payments: JSON.parse(JSON.stringify(input.payments)),
+        vatDetails: vatDetails as unknown as Prisma.InputJsonValue,
+        payments: input.payments as unknown as Prisma.InputJsonValue,
         isExpenseNote: input.isExpenseNote ?? false,
         isCancellation: input.isCancellation ?? false,
         cancelledRef: input.cancelledRef ?? null,

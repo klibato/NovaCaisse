@@ -27,7 +27,7 @@ async function authPlugin(fastify: FastifyInstance) {
     async function (request: FastifyRequest, reply: FastifyReply) {
       try {
         await request.jwtVerify();
-      } catch (err) {
+      } catch {
         reply.status(401).send({ error: 'Non autorisé', code: 'UNAUTHORIZED' });
       }
     },
