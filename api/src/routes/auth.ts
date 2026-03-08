@@ -27,6 +27,13 @@ const loginSchema = {
         },
       },
     },
+    401: {
+      type: 'object' as const,
+      properties: {
+        error: { type: 'string' as const },
+        code: { type: 'string' as const },
+      },
+    },
   },
 };
 
@@ -73,7 +80,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     }
 
     if (!matchedUser) {
-      return reply.status(401).send({ error: 'PIN incorrect', code: 'INVALID_PIN' });
+      return reply.code(401).send({ error: 'PIN incorrect', code: 'INVALID_PIN' });
     }
 
     const payload = {
@@ -85,7 +92,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
     const token = fastify.jwt.sign(payload, { expiresIn: '8h' });
     const refreshToken = fastify.jwt.sign(
-      { userId: matchedUser.id, tenantId: matchedUser.tenantId, type: 'refresh' },
+      { userId: matchedUser.id, tenantId: matchedUser.tenantId, type: 'refresh' } as any,
       { expiresIn: '7d' },
     );
 
@@ -145,7 +152,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
       const token = fastify.jwt.sign(payload, { expiresIn: '8h' });
       const newRefreshToken = fastify.jwt.sign(
-        { userId: user.id, tenantId: user.tenantId, type: 'refresh' },
+        { userId: user.id, tenantId: user.tenantId, type: 'refresh' } as any,
         { expiresIn: '7d' },
       );
 

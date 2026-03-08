@@ -40,20 +40,21 @@ export async function buildApp() {
 
   // --- Plugins ---
   await app.register(cors, {
-    origin: (origin: string | undefined, cb: (err: Error | null, allow?: string | boolean) => void) => {
-      if (!origin) return cb(null, true);
+    origin: (origin: string, callback: (err: Error | null, origin?: boolean | string) => void) => {
+      if (!origin) return callback(null, true);
       if (
         origin === 'http://localhost:3000' ||
         origin.match(/^http:\/\/[\w-]+\.localhost:3000$/) ||
-        origin.match(/^https:\/\/[\w-]+\.novacaisse\.fr$/)
+        origin.match(/^https:\/\/[\w-]+\.novacaisse\.fr$/) ||
+        origin === 'https://novacaisse.fr'
       ) {
-        return cb(null, origin);
+        return callback(null, origin);
       }
-      cb(new Error('CORS not allowed'), false);
+      callback(new Error('CORS not allowed'), false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  });
+  } as any);
 
   await app.register(helmet, {
     contentSecurityPolicy: false, // Disabled for Swagger UI
