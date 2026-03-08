@@ -20,6 +20,7 @@ import closureRoutes from './routes/closures.js';
 import dashboardRoutes from './routes/dashboard.js';
 import userRoutes from './routes/users.js';
 import settingsRoutes from './routes/settings.js';
+import registerRoutes from './routes/register.js';
 import { setupClosureJobs } from './jobs/closures.job.js';
 
 const envToLogger: Record<string, object | boolean> = {
@@ -38,14 +39,28 @@ export async function buildApp() {
     logger: envToLogger[process.env.NODE_ENV ?? 'development'] ?? true,
   });
 
+  const isProd = process.env.NODE_ENV === 'production';
+
   // --- Plugins ---
+
+  // CORS: strict in production, permissive in dev
   await app.register(cors, {
     origin: ((origin: string | undefined, cb: (err: Error | null, allow?: string | boolean) => void) => {
       if (!origin) return cb(null, true);
+      if (isProd) {
+        // Production: only *.novacaisse.fr
+        if (
+          origin === 'https://novacaisse.fr' ||
+          /^https:\/\/[\w-]+\.novacaisse\.fr$/.test(origin)
+        ) {
+          return cb(null, origin);
+        }
+        return cb(new Error('CORS not allowed'), false);
+      }
+      // Dev: localhost
       if (
         origin === 'http://localhost:3000' ||
-        origin.match(/^http:\/\/[\w-]+\.localhost:3000$/) ||
-        origin.match(/^https:\/\/[\w-]+\.novacaisse\.fr$/)
+        /^http:\/\/[\w-]+\.localhost:3000$/.test(origin)
       ) {
         return cb(null, origin);
       }
@@ -56,16 +71,42 @@ export async function buildApp() {
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   });
 
+  // Helmet: security headers
   await app.register(helmet, {
-    contentSecurityPolicy: false, // Disabled for Swagger UI
+    contentSecurityPolicy: isProd
+      ? {
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", 'data:', 'https:'],
+            connectSrc: ["'self'", 'https://api.novacaisse.fr'],
+            fontSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            frameSrc: ["'none'"],
+            baseUri: ["'self'"],
+            formAction: ["'self'"],
+            upgradeInsecureRequests: [],
+          },
+        }
+      : false, // Disabled in dev for Swagger UI
+    crossOriginEmbedderPolicy: isProd,
+    crossOriginOpenerPolicy: isProd ? { policy: 'same-origin' as const } : false,
+    crossOriginResourcePolicy: isProd ? { policy: 'same-origin' as const } : false,
   });
 
+  // JWT: enforce strong secret in production
+  const jwtSecret = process.env.JWT_SECRET ?? '';
+  if (isProd && jwtSecret.length < 64) {
+    throw new Error('JWT_SECRET must be at least 64 characters in production');
+  }
   await app.register(jwt, {
-    secret: process.env.JWT_SECRET ?? 'dev-secret-change-in-prod',
+    secret: jwtSecret || 'dev-secret-change-in-prod',
   });
 
   await app.register(cookie);
 
+  // Rate limiting: global 100 req/min per IP
   await app.register(rateLimit, {
     max: 100,
     timeWindow: '1 minute',
@@ -96,7 +137,17 @@ export async function buildApp() {
   await app.register(subdomainPlugin);
 
   // --- Routes ---
-  await app.register(authRoutes);
+
+  // Auth routes with stricter rate limiting on login (5 req/min per IP)
+  await app.register(async function authScope(instance) {
+    await instance.register(rateLimit, {
+      max: 5,
+      timeWindow: '1 minute',
+      keyGenerator: (req) => req.ip,
+    });
+    await instance.register(authRoutes);
+  });
+
   await app.register(ticketRoutes);
   await app.register(productRoutes);
   await app.register(categoryRoutes);
@@ -105,6 +156,16 @@ export async function buildApp() {
   await app.register(dashboardRoutes);
   await app.register(userRoutes);
   await app.register(settingsRoutes);
+
+  // Public registration route (rate-limited: 10 req/min)
+  await app.register(async function registerScope(instance) {
+    await instance.register(rateLimit, {
+      max: 10,
+      timeWindow: '1 minute',
+      keyGenerator: (req) => req.ip,
+    });
+    await instance.register(registerRoutes);
+  });
 
   // --- Health Check ---
   app.get('/health', async () => {
