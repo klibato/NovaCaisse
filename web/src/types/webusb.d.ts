@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-empty-object-type */
-
 // WebUSB API type declarations for printer support
 // These types are not yet in the standard lib DOM types
 
