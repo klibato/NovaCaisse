@@ -32,6 +32,8 @@ interface CreateTicketInput {
   isCancellation?: boolean;
   cancelledRef?: string;
   userId?: string;
+  /** TTC authoritative du frontend (priceTtc * qty) — source de vérité pour éviter les écarts d'arrondi prorata */
+  clientTotalTtc?: number;
 }
 
 interface VatDetail {
@@ -92,7 +94,7 @@ export async function createTicket(
     const prevHash = lastTicket ? lastTicket.hash : GENESIS_HASH;
 
     // 3. Calculer les totaux
-    const { totalHt, totalTtc, vatDetails } = computeTotals(input.items);
+    const { totalHt, totalTtc, vatDetails } = computeTotals(input.items, input.clientTotalTtc);
 
     // 4. Vérifier que les paiements couvrent le total TTC
     const totalPayments = input.payments.reduce((sum, p) => sum + p.amount, 0);
@@ -178,8 +180,13 @@ export async function createTicket(
 
 /**
  * Calcule les totaux HT, TTC et la ventilation TVA à partir des items.
+ *
+ * @param totalTtcOverride — TTC autoritatif (priceTtc du frontend). Quand fourni,
+ *   il est utilisé comme totalTtc et le montant TVA du groupe le plus important est
+ *   ajusté de quelques centimes pour que totalHt + sum(vatAmounts) = totalTtc.
+ *   Cela évite les écarts d'arrondi issus du prorata de menus composites.
  */
-function computeTotals(items: TicketItem[]): {
+function computeTotals(items: TicketItem[], totalTtcOverride?: number): {
   totalHt: number;
   totalTtc: number;
   vatDetails: VatDetail[];
@@ -222,7 +229,20 @@ function computeTotals(items: TicketItem[]): {
     }),
   );
 
-  const totalTtc = totalHt + vatDetails.reduce((sum, v) => sum + v.amount, 0);
+  const computedTtc = totalHt + vatDetails.reduce((sum, v) => sum + v.amount, 0);
+  const totalTtc = totalTtcOverride ?? computedTtc;
+
+  // Si totalTtcOverride est fourni et diffère du TTC recalculé (écart d'arrondi prorata),
+  // on absorbe la différence dans le groupe TVA le plus important pour garder la cohérence
+  // totalHt + sum(vatAmounts) = totalTtc (exigence ISCA).
+  const diff = totalTtc - computedTtc;
+  if (diff !== 0 && vatDetails.length > 0) {
+    const maxIdx = vatDetails.reduce(
+      (best, v, i, arr) => (v.amount > arr[best].amount ? i : best),
+      0,
+    );
+    vatDetails[maxIdx].amount += diff;
+  }
 
   return { totalHt, totalTtc, vatDetails };
 }

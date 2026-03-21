@@ -64,6 +64,7 @@ const createTicketSchema = {
       isExpenseNote: { type: 'boolean' as const },
       isCancellation: { type: 'boolean' as const },
       cancelledRef: { type: 'string' as const },
+      totalTtc: { type: 'integer' as const, minimum: 0 },
     },
   },
 };
@@ -87,6 +88,7 @@ export default async function ticketRoutes(fastify: FastifyInstance) {
       isExpenseNote?: boolean;
       isCancellation?: boolean;
       cancelledRef?: string;
+      totalTtc?: number;
     };
 
     try {
@@ -99,6 +101,7 @@ export default async function ticketRoutes(fastify: FastifyInstance) {
         isCancellation: body.isCancellation,
         cancelledRef: body.cancelledRef,
         userId: request.user.userId,
+        clientTotalTtc: body.totalTtc,
       });
 
       return reply.status(201).send(ticket);

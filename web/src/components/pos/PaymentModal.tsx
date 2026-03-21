@@ -217,6 +217,7 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
         items: ticketItems,
         payments,
         isExpenseNote,
+        totalTtc: ttc,
       };
 
       try {
