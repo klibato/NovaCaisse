@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Check, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Check, Loader2, AlertCircle, Mail, RefreshCw } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -47,9 +47,10 @@ export default function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{
-    slug: string;
-    loginUrl: string;
+    email: string;
   } | null>(null);
+  const [resending, setResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
 
   // Auto-generate slug from name
   useEffect(() => {
@@ -141,10 +142,9 @@ export default function RegisterPage() {
         return;
       }
 
-      const data = await res.json();
+      await res.json();
       setSuccess({
-        slug: data.tenant.slug,
-        loginUrl: data.loginUrl,
+        email: form.email,
       });
     } catch {
       setError('Erreur de connexion au serveur. Veuillez reessayer.');
@@ -153,32 +153,66 @@ export default function RegisterPage() {
     }
   };
 
+  const handleResend = async () => {
+    setResending(true);
+    setResendMessage(null);
+    try {
+      const res = await fetch(`${API_URL}/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: success?.email }),
+      });
+      if (res.ok) {
+        setResendMessage('Email renvoye avec succes.');
+      } else {
+        setResendMessage('Erreur lors du renvoi. Reessayez plus tard.');
+      }
+    } catch {
+      setResendMessage('Erreur de connexion au serveur.');
+    } finally {
+      setResending(false);
+    }
+  };
+
   if (success) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
         <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-            <Check className="h-8 w-8 text-green-600" />
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
+            <Mail className="h-8 w-8 text-blue-600" />
           </div>
           <h1 className="mt-6 text-center text-2xl font-bold text-gray-900">
-            Compte cree avec succes !
+            Verifiez votre boite email
           </h1>
           <p className="mt-3 text-center text-gray-600">
-            Votre restaurant est pret. Connectez-vous pour commencer a
-            utiliser NovaCaisse.
+            Un email de verification a ete envoye a
           </p>
-          <div className="mt-6 rounded-xl bg-gray-50 p-4">
-            <p className="text-sm text-gray-500">Votre adresse :</p>
-            <p className="mt-1 font-mono text-sm font-medium text-gray-900">
-              {success.slug}.novacaisse.fr
-            </p>
+          <p className="mt-1 text-center font-semibold text-gray-900">
+            {success.email}
+          </p>
+          <p className="mt-4 text-center text-sm text-gray-500">
+            Cliquez sur le lien dans l&apos;email pour activer votre compte.
+          </p>
+          <div className="mt-6 space-y-3">
+            <button
+              onClick={handleResend}
+              disabled={resending}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+            >
+              {resending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Renvoyer l&apos;email
+            </button>
+            {resendMessage && (
+              <p className="text-center text-sm text-green-600">{resendMessage}</p>
+            )}
           </div>
-          <a
-            href={success.loginUrl}
-            className="mt-6 flex w-full items-center justify-center rounded-xl bg-green-600 py-3 font-semibold text-white transition hover:bg-green-700"
-          >
-            Se connecter
-          </a>
+          <p className="mt-6 text-center text-xs text-gray-400">
+            Vous n&apos;avez pas recu l&apos;email ? Verifiez vos spams.
+          </p>
           <Link
             href="/"
             className="mt-4 flex w-full items-center justify-center text-sm text-gray-500 hover:text-gray-700"

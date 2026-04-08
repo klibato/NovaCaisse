@@ -21,6 +21,9 @@ model Tenant {
   logoUrl          String?
   subscriptionPlan String   @default("starter")
   tenantSecret     String // clé HMAC pour signatures ISCA
+  emailVerified             Boolean   @default(false)
+  emailVerificationToken    String?   @unique
+  emailVerificationExpires  DateTime?
   active           Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

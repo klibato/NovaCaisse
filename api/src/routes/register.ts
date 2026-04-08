@@ -1,6 +1,8 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import * as argon2 from 'argon2';
-import { randomBytes } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
+import rateLimit from '@fastify/rate-limit';
+import { sendVerificationEmail, sendWelcomeEmail } from '../services/email.service.js';
 
 const registerSchema = {
   body: {
@@ -46,6 +48,16 @@ const checkSlugSchema = {
         maxLength: 50,
         pattern: '^[a-z0-9][a-z0-9-]*[a-z0-9]$',
       },
+    },
+  },
+};
+
+const resendVerificationSchema = {
+  body: {
+    type: 'object' as const,
+    required: ['email'],
+    properties: {
+      email: { type: 'string' as const, format: 'email' },
     },
   },
 };
@@ -122,6 +134,10 @@ export default async function registerRoutes(fastify: FastifyInstance) {
       // Hash the PIN
       const hashedPin = await argon2.hash(body.pinCode);
 
+      // Generate email verification token
+      const emailVerificationToken = randomUUID();
+      const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+
       // Create tenant + owner in a transaction
       const result = await fastify.prisma.$transaction(async (tx) => {
         const tenant = await tx.tenant.create({
@@ -133,6 +149,9 @@ export default async function registerRoutes(fastify: FastifyInstance) {
             siret: body.siret,
             phone: body.phone ?? null,
             tenantSecret,
+            emailVerified: false,
+            emailVerificationToken,
+            emailVerificationExpires,
           },
         });
 
@@ -160,26 +179,136 @@ export default async function registerRoutes(fastify: FastifyInstance) {
         return { tenant, owner };
       });
 
-      // TODO: Send welcome email (placeholder)
+      // Send verification email (fire-and-forget, don't block response)
+      sendVerificationEmail(body.email, body.name, emailVerificationToken).catch((err) => {
+        fastify.log.error({ err, tenantId: result.tenant.id }, 'Failed to send verification email');
+      });
+
       fastify.log.info(
         { tenantId: result.tenant.id, slug: result.tenant.slug },
-        'New tenant registered'
+        'New tenant registered — verification email sent'
       );
 
       return reply.status(201).send({
+        success: true,
+        message: 'Un email de verification a ete envoye a votre adresse.',
         tenant: {
           id: result.tenant.id,
           name: result.tenant.name,
           slug: result.tenant.slug,
           email: result.tenant.email,
         },
-        owner: {
-          id: result.owner.id,
-          name: result.owner.name,
-          role: result.owner.role,
-        },
-        loginUrl: `https://${result.tenant.slug}.novacaisse.fr/login`,
       });
     }
   );
+
+  // Verify email
+  fastify.get(
+    '/verify-email',
+    async (request, reply) => {
+      const { token } = request.query as { token?: string };
+
+      if (!token) {
+        return reply.status(400).send({ error: 'Token manquant.', code: 'MISSING_TOKEN' });
+      }
+
+      const tenant = await fastify.prisma.tenant.findUnique({
+        where: { emailVerificationToken: token },
+        include: {
+          users: {
+            where: { role: 'OWNER' },
+            select: { name: true, email: true },
+            take: 1,
+          },
+        },
+      });
+
+      if (!tenant) {
+        return reply.status(400).send({ error: 'Lien invalide ou expire.', code: 'INVALID_TOKEN' });
+      }
+
+      if (tenant.emailVerificationExpires && tenant.emailVerificationExpires < new Date()) {
+        return reply.status(400).send({ error: 'Ce lien a expire. Veuillez en demander un nouveau.', code: 'TOKEN_EXPIRED' });
+      }
+
+      if (tenant.emailVerified) {
+        return reply.redirect(`https://${tenant.slug}.novacaisse.fr/login?verified=true`);
+      }
+
+      // Activate
+      await fastify.prisma.tenant.update({
+        where: { id: tenant.id },
+        data: {
+          emailVerified: true,
+          emailVerificationToken: null,
+          emailVerificationExpires: null,
+        },
+      });
+
+      await fastify.prisma.auditLog.create({
+        data: {
+          tenantId: tenant.id,
+          action: 'tenant.email_verified',
+          details: { email: tenant.email },
+          ip: request.ip,
+        },
+      });
+
+      // Send welcome email
+      const owner = tenant.users[0];
+      if (owner) {
+        sendWelcomeEmail(
+          owner.email || tenant.email,
+          tenant.name,
+          tenant.slug,
+          owner.name,
+        ).catch((err) => {
+          fastify.log.error({ err, tenantId: tenant.id }, 'Failed to send welcome email');
+        });
+      }
+
+      return reply.redirect(`https://${tenant.slug}.novacaisse.fr/login?verified=true`);
+    }
+  );
+
+  // Resend verification email (rate-limited: 3/hour)
+  fastify.register(async function resendScope(instance) {
+    await instance.register(rateLimit, {
+      max: 3,
+      timeWindow: '1 hour',
+      keyGenerator: (req: FastifyRequest) => req.ip,
+    });
+
+    instance.post(
+      '/resend-verification',
+      { schema: resendVerificationSchema },
+      async (request, reply) => {
+        const { email } = request.body as { email: string };
+
+        const tenant = await fastify.prisma.tenant.findFirst({
+          where: { email, emailVerified: false },
+        });
+
+        // Always return success to avoid leaking which emails exist
+        if (!tenant) {
+          return reply.send({ success: true, message: 'Si cette adresse est associee a un compte, un email a ete envoye.' });
+        }
+
+        // Generate new token
+        const emailVerificationToken = randomUUID();
+        const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        await fastify.prisma.tenant.update({
+          where: { id: tenant.id },
+          data: { emailVerificationToken, emailVerificationExpires },
+        });
+
+        sendVerificationEmail(email, tenant.name, emailVerificationToken).catch((err) => {
+          fastify.log.error({ err, tenantId: tenant.id }, 'Failed to resend verification email');
+        });
+
+        return reply.send({ success: true, message: 'Si cette adresse est associee a un compte, un email a ete envoye.' });
+      }
+    );
+  });
 }

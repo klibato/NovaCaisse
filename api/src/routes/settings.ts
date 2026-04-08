@@ -107,6 +107,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
           name: true,
           slug: true,
           logoUrl: true,
+          emailVerified: true,
         },
       });
 
